@@ -3,6 +3,7 @@
 
 ###### INTRO
 Contains all notes and source code compiled from Effective C++
+<br />
 Third Edition by Scott Meyers in 2005 [http://bit.ly/2a2xLh3]
 
 ###### TOOLS
