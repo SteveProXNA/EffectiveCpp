@@ -1,0 +1,271 @@
+03 Item03
+05-Nov-2013
+
+
+Item 03: Use const whenever possible 
+
+
+An object should not be modified — and compilers will enforce that constraint.
+
+
+Pointers
+Specify whether pointer is const, data it points to is const, both or neither
+
+
+char greeting[] = "Hello";
+char stevepro[] = "Steve";
+
+
+      char*       p1 = greeting;	// neither const
+const char*       p2 = greeting;	// DATA    const
+      char* const p3 = greeting;	// POINTER const
+const char* const p4 = greeting;	// both    const
+
+
+TRICK
+Imagine line down the "*"
+If const to left  then DATA    is const
+If const to right then POINTER is const
+
+const LHS = DATA	(D)
+const RHS = POINTER	(P)
+
+
+EXAMPLE
+Data	p2[0] = 'X';
+error C3892: 'p2' : you cannot assign to a variable that is const
+
+
+Pointer p3 = stevepro;			
+error C3892: 'p3' : you cannot assign to a variable that is const
+
+
+If const on left of asterisk then what's pointed to is const	i.e. data
+If const on right of asterisk then the pointer itself is const 	i.e. pointer
+
+
+DATA
+Both are the same
+const char* p2 = greeting;
+
+char const* p2 = greeting;
+char const *p2 = greeting;
+
+
+ITERATORS
+STL iterators modelled on (C) pointers
+Act like T* pointer
+
+const iterator is like pointer const (T* const pointer)
+i.e. what iterator points to (RHS of *)	POINTER
+
+Thus, the iterator is not allowed to point to anything else
+But the DATA i.e. the thing iterator points to may be modified
+
+Example #1
+const std::vector<int>::iterator iter = vec.begin();
+*iter = 10;
+//++iter;	ERROR because iterator is const pointer thus cannot point to anything else!
+
+
+const_iterator
+If you want iterator to point to something else (be modified) but the DATA each iteration points to
+Then use const_iterator (const T* pointer)
+
+Example #2
+std::vector<int>::const_iterator cIter = vec.begin();
+//*cIter = 10;		// error C3892: 'cIter' : you cannot assign to a variable that is const
+++cIter;
+
+
+
+FUNCTION DECLARATION
+const refer to:
+return value
+input parameters
+member functions as a whole
+
+
+GOOD Example
+
+class Rational { ... };
+
+const Rational operator*(const Rational& lhs, const Rational& rhs);
+
+Why should return type operator* be const?
+Because it prevents this:
+
+Rational a, b, c;
+(a * b) = c		// wouldn't proactively do this
+
+BUT
+if (a * b = c)	...	// oops, meant to do comparison
+
+
+One of the hallmarks of good user-defined types is that they avoid gratuitous incompatibilities with built-in types
+Declaring operator* return value as const prevents this 	DO IT!
+
+const save from annoying "I meant to type '==' but accidentally typed '='" mistakes
+
+
+const Member Functions
+const Member Functions identify which member functions may be invoked on const objects.
+
+2x REASONS important
+
+01.
+Interface easier to understand:
+Which functions modify an object + which don't
+
+
+02.
+Make it possible to work with const objects
+
+IMP: improve performance by pass objects by reference to const
+Technique only viable if there are const member functions to manipulate const-qualified objects
+
+
+IMPORTANT C++ feature:
+Member functions differing only in constness can be overloaded
+
+// operator[] for const objects.
+const char& operator[](std::size_t position) const
+{
+	return text[position];
+}
+
+// operator[] for non-const objects.
+char& operator[](std::size_t position)
+{
+	return text[position];
+}
+
+
+ tb[0] = 'x'; 
+ctb[0] = 'x'; 		// error! - writing to const TextBlock
+
+Error here has to do with return type of operator[]
+calls to operator[] are fine
+but attempt to assign to const char& arises because return type of const version of operator[]
+
+
+IMPORTANT
+non-const operator[] is a reference to a char - a char would not do!
+
+If operator[] on non-const did return simple char then statements like this wouldn't compile:
+
+char operator[](std::size_t position);
+// error C2106: '=' : left operand must be l-value
+
+
+Why?
+Because it never legal to modify the return value of a function that returns a built in type (char)
+
+If it were legal, C++ return objects by value thus a COPY of tb.text[0] would be modified
+NOT tb.text[0] itself - not the behavior you want
+
+
+Member functions as const
+2x NOTIONS
+
+01.
+Physical constness	(bitwise constness)
+If, and only if, member function doesn't modify any of the object data members (excluding static)
+const member function isn't allowed to modify any of the non-static data members of the object
+
+Violations: just look for assignments to data members
+A const member function isn't allowed to modify any of the non-static data members
+
+
+1.5
+Many member functions don't act very const but pass the bitwise test
+
+e.g.
+Member function that modifies what a pointer points to (data) doesn't act const
+If the pointer is in the object then the compiler doesn't complain WTF
+
+const CTextBlock cctb("Hello");
+char* pc = &cctb[0];
+*pc = 'J';		// Access violation but sometimes may be "Jello"
+
+Problem: create const object but can modify some of its bits in the object!
+
+
+02.
+Logical constness
+A const member function might modify some of the bits in the object on which it's invoked
+But only in ways that clients cannot detect
+
+std::size_t length() const;
+NOT bitwise const as both textLength and lengthIsValid try to be modified
+
+// error C3490: 'textLength' cannot be modified because it is being accessed through a const object
+
+It should be valid for const CTextBlock objects.  Compilers disagree.
+They insist on bitwise constness.  What to do?    MUTABLE!!
+
+class CTextBlock3
+{
+public:
+	CTextBlock3::CTextBlock3(char* t) : pText(t), lengthIsValid(false)
+	{
+	}
+
+	std::size_t length() const;
+
+private:
+	char* pText;
+
+	mutable std::size_t textLength;
+	mutable bool lengthIsValid;
+};
+
+mutable is nice solution to bitwise-constness problem
+
+
+However, you may need to do similar code in const and non-const version operator[] = code duplication
+Put common code into private separate member function that both version operator[] call
+
+But may be better to implement functionality once and use it twice:
+One version calls the other (cast away constness)
+
+Have the non-const operator[] call the const version is a safe way to avoid code duplication
+even though it requires a cast
+
+
+// operator[] for const objects.
+const char& operator[](std::size_t position) const
+{
+	return text[position];
+}
+
+// operator[] for non-const objects.
+char& operator[](std::size_t position)
+{
+	return const_cast<char&>(static_cast<const TextBlock&>(*this)[position]);
+}
+
+
+Non-const version has 2x casts
+As there's no way to specify call to the const operator we cast *this from TextBlock& to const TextBlock&
+Yes, we have to a cast to const!  (Otherwise non-const calls itself recursively forever)
+
+1. to add const to *this (call const operator[])	static_cast<const TextBlock&>(*this)[position]
+2. remove const from const operator[]'s value		const_cast<char&>(...)	cast away constness
+
+
+Finally, you do NOT want const version to call the non-const version as non-const may change things in object
+(and const promises never to change anything)
+
+But non-const can do whatever it wants and calling const member function imposes no risk
+That's why static_cast works on *this (there's no const-related danger)
+
+
+REMEMBER
+* Declaring something const helps compilers detect usage errors.
+  const can be applied to objects at any scope, to function parameters and return types, and to member functions
+
+* Compilers enforce bitwise constness but you should program using conceptual constness
+
+* When const and non-const member functions have essentially identical implementations,
+  code duplication can be avoided by having the non-const version call the const version

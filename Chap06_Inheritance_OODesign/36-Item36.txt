@@ -1,0 +1,134 @@
+36 Item36
+19-Dec-2013
+
+
+Item 36: Never redefine an inherited non-virtual function
+
+
+Assume class D is publicly derived from class B and there is public member function mf() defined in class B
+i.e.
+
+
+class B
+{
+public:
+  void mf();
+  ...
+};
+
+
+class D : public B
+{
+  ...
+};
+
+
+Given object x of type D
+
+// x is an object of type D
+D x;
+
+
+you'd be surprised if this:
+
+B* pB = &x;                       // get pointer to x
+pB->mf();                         // call mf through pointer
+
+
+behaved differently from this:
+
+D* pD = &x;                       // get pointer to x
+pD->mf();                         // call mf through pointer
+
+
+In both cases invoking member function mf() on object x
+Because it's the same function and same object it should behave the same 
+
+
+However, it won't if mf() is non-virtual and D has defined its own version of mf()
+
+
+class D: public B
+{
+public:
+  void mf();                      // hides B::mf; see Item33
+  ...
+};
+
+
+pB->mf();                         // calls B::mf
+pD->mf();                         // calls D::mf
+
+
+REASON
+Non-virtual functions like B::mf() and D::mf() are statically bound (Item37)
+
+Because pB is declared to be type pointer-to-B, non-virtual functions invoked through B will ALWAYS be defined for class B
+even if pB points to an object of a class derived from B, i.e. D, as it does in this example
+
+
+Virtual functions, however, are dynamically bound (Item37) so they don't suffer from this problem
+If mf() were a virtual function then a call to mf() through either pB or pD results in invocation D::mf()
+because pB and pD REALLY point to an object of type D
+
+
+If writing class D and redefine a non-virtual function mf() that you inherit from class B, D objects will exhibit inconsistent behavior
+In particular, any given D object may act like either a B or a D when mf() is called - determining factor has nothing to do with object
+itself but with the declared type of pointer that points to it
+
+References exhibit the same baffling behavior as pointers do
+
+
+THEORY
+Item32 explains public inheritance means "is-a" and Item34 describes why declaring non-virtual function in a class
+establishes an invariant over specialization for that class
+
+If you apply these observations to the classes B and D and to the non-virtual member function B::mf() then
+
+01.
+Everything that applies to B objects also applies to D objects because every D object is-a B object
+
+
+02.
+Classes derived from B must inherit both the interface and implementation of mf() because mf() is non-virtual in B
+
+
+Now, if D redefines mf() then there is a contradiction in your design:
+If D really needs to implement mf() differently from B and if every B object - no matter how specialized -
+REALLY has to use the implementation for mf() then it's simply not true that every D is-a B
+
+Then D should NOT public inherit from B
+
+
+However, if D really has to publicly inherit from B and D REALLY needs to implement mf() differently from B
+then it's just not true that mf() reflects an invariant over specialization for B
+
+Then mf() should be virtual
+
+
+Finally, if every D REALLY is-a B and mf() REALLY corresponds to an invariant over specialization
+then D can't honestly need to redefine mf() and it shouldn't try to
+
+
+Regardless of which argument applies, under no conditions is it the prohibition on redefining an inherited non-virtual function
+
+
+DEJA VU
+Sense of deja vu - already read this in Item7
+Item7 explains why destructors in polymorphic base classes should be virtual
+
+If you violate that guideline (i.e. declare a non-virtual destructor in a polymorphic base class) then
+you'll be violating this guideline because derived classes would invariably redefine an inherited non-virtual function
+
+i.e. the base class destructor
+
+
+This would be true even for derived classes that declare no destructor because Item5 explains
+the destructor is one of the member functions that compilers generated for you if you don't declare one yourself
+
+
+Item7 is nothing more than a special case of this Item!
+
+
+REMEMBER
+* Never redefine an inherited non-virtual function

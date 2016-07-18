@@ -1,0 +1,35 @@
+class B
+{
+public:
+	void mf()
+	{
+	}
+};
+
+class D : public B
+{
+};
+
+
+#include "MyClass1.h"
+
+int main()
+{
+	// x is an object of type D.
+	D x;
+
+	// get pointer to x of type D.
+	B* pB = &x;
+
+	// call B::mf() through pointer.
+	pB->mf();
+
+
+	// get pointer to x of type D.
+	D* pD = &x;
+
+	// call B::mf() through pointer.
+	pD->mf();
+
+	return 0;
+}

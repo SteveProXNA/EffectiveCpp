@@ -1,0 +1,32 @@
+#include "Person.h"
+
+// Anyone can eat.
+void eat(const Person& p)
+{
+}
+// Only students study.
+void study(const Student& s)
+{
+}
+
+int main()
+{
+	Person p;
+	Student s;
+
+	eat(p);			// Fine: p is a Person.
+	eat(s);			// Fine: s is a Person.
+
+	study(s);		// Fine: s is a Student.
+	study(p);		// Error! p is not a Student.
+	return 0;
+}
+
+
+class Person
+{
+};
+
+class Student : public Person
+{
+};

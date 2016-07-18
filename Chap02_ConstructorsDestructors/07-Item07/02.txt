@@ -1,0 +1,21 @@
+09/11/2013
+
+#include <string>
+
+class SpecialString : public std::string
+{
+};
+
+
+#include <string>
+#include "SpecialString.h"
+
+int main()
+{
+	SpecialString* pss = new SpecialString();
+	std::string* ps;
+
+	ps = pss;
+	delete ps;
+	return 0;
+}

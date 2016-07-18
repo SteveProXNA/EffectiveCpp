@@ -1,0 +1,29 @@
+#pragma once
+
+class Widget
+{
+public:
+	explicit Widget(int s) : mysize(s) {}
+
+private:
+	int mysize;
+};
+
+
+#pragma once
+
+#include "Widget.h"
+
+void doSomeWork(const Widget& w)
+{
+}
+
+int main()
+{
+	// create Widget from int with function-style cast
+	doSomeWork(Widget(15));
+
+	// create Widget from int with C++ (new) style cast
+	doSomeWork(static_cast<Widget>(15));
+	return 0;
+}

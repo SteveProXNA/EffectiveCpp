@@ -1,0 +1,30 @@
+class Person
+{
+};
+
+class Student : private Person
+{
+};
+
+
+#include "Person.h"
+
+// Anyone can eat.
+void eat(const Person& p)
+{
+}
+
+// Only students study.
+void study(const Student& s)
+{
+}
+
+int main()
+{
+	Person p;
+	Student s;
+
+	eat(p);
+	//eat(s);		Error Student is not Person (private inheritance)
+	return 0;
+}

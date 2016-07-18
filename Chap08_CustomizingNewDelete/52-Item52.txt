@@ -1,0 +1,265 @@
+52 Item52
+29-Mar-2014
+
+
+Item 52: Write placement delete if you write placement new
+
+
+Widget* pw = new Widget
+
+2x functions called:
+1. operator new
+2. Widget default constructor
+
+
+If first call succeeds but second call throws exception then the memory allocation from step 1 must be undone
+Otherwise there is a memory leak
+
+
+Client code can't deallocate memory because if the Widget constructor throws an exception then pw is never assigned
+There's no way for clients to get at the pointer to the memory that should be deallocated
+
+Responsibility of step 1 falls on C++ runtime system
+
+
+Runtime system is happy to call operator delete that corresponds to the version of operator new (step 1)
+but only if it knows which operator delete - there may be many - is the proper one to call
+
+
+Not an issue if you're dealing with "normal" signatures of operator new and delete:
+
+void* operator new(std::size_t) throw(std::bad_alloc);
+
+void operator delete(void* rawMemory) throw();				// global scope
+void operator delete(void* rawMemory, std::size_t size) throw();	// class scope
+
+
+Here, C++ runtime has no trouble finding delete that undo what new did
+The problem does arises when you declare non-normal operator new (e.g. take additional parameters)
+
+e.g.
+Write class-specific operator new that requires ostream wo which allocation data should be logged
+Also wrote normal class-specific operator delete
+
+
+class Widget
+{
+public:
+	static void* operator new(std::size_t size, std::ostream& logStream) throw(std::bad_alloc);
+	static void operator delete(void* pMemory, std::size_t size) throw)
+	
+};
+
+
+Design is problematic!  But first...
+
+
+TERMINOLOGY
+When operator new takes extra parameters (other than size_t) then that function is placement version of new
+operator new above is placement version
+
+
+Good example of placement new: one that takes pointer specifying where object should be constructed
+void* operator new(std::size_t, void* pMemeory) throw();
+
+
+Placement new means any version of new taking extra arguments because phrase "placement delete" derived directly
+
+
+Design (above)
+Difficulty is this class will give rise to subtle memory leaks
+Consider client code which logs allocation information to cerr when dynamically creating Widget
+
+
+// call operator new passing cerr as the ostream
+// this leaks memory if Widget constructor throws
+Widget* pw = new (std::cerr) Widget;
+
+
+Again, if memory allocation succeeds but Widget constructor throws exception then the runtime system is
+responsible for undoing the allocation that operator new performed
+
+However, the runtime system can't really understand how the called version operator new works
+so it can't undo the allocation itself
+
+Instead, runtime looks for version of operator delete that takes the same number and types of parameters as new!
+If it finds one then it calls it.  Here C++ would look for operator delete that has signature
+
+void operator delete(void*, std::ostream&) throw();
+
+
+There is no operator delete with this signature thus no operator delete is called if Widget ctor throws exception
+
+
+RULE
+If an operator new with extra parameters isn't matched by an operator delete with the same extra parameters then
+no delete will be called if a memory allocation by the new needs to be undone!
+
+To eliminate memory leak (above), Widget needs to declare a placement delete that corresponds to operator new
+
+
+class Widget
+{
+public:
+	static void* operator new(std::size_t size, std::ostream& logStream) throw(std::bad_alloc);
+	static void operator delete(void* pMemory) throw();
+	static void operator delete(void* pMemory, std::ostream& logStream) throw();
+};
+
+
+Now, if an exception is thrown from the Widget constructor
+
+// same as before but this time no leak
+Widget* pw = new (std::cerr) Widget
+
+
+The corresponding placement delete is automatically invoked and that allows Widget to ensure no memory is leaked
+
+
+However, if no exception is thrown and we get to delete in client code
+
+// invokes the normal delete
+delete pw;
+
+
+Here, calls normal operator delete NOT the placement delete
+Placement delete is called only if an exception arises from a constructor (coupled call to placement new)
+
+Applying delete to pointer pw never yields call to placement version of delete.  Never!
+
+
+IMPORTANT
+Prevent subtle memory leaks associated with placement versions of new then you must provide both normal
+operator delete (for no exception thrown during construction) and placement with same arguments (for when one is)
+
+Do that to prevent these subtle memory leaks
+
+
+HIDING
+Because member function names hide functions with same names in outer scopes (Item33), must be careful to avoid
+having class-specific new hide other new (including normal version) that client code expects
+
+e.g.
+if you have base class that declares only a placement version of placement new then
+clients will find normal form of new is unavailable to them
+
+
+class Base
+{
+public:
+	static void* operator new(std::size, std::ostream& logStream) throw(std::bad_alloc);	
+};
+
+
+// error!  normal form of operator new is hidden!
+Base* pb = new Base;
+
+// fine: calls Base placement new
+Base* pb = new (std::cerr) Base;
+
+
+Similarly, operator new in derived classes hide both global and inherited versions of operator new
+
+
+class Derived : public Base
+{
+public:
+	// redeclares the normal form of new
+	static void* operator new(std::size_t size) throw(std::bad_alloc);
+};
+
+
+// error! Base placement new is hidden
+Derived* pd = new (std::clog) Derived;
+
+// fine: calls Derived operator new
+Derived* pd = new Derived;
+
+
+Item33 discusses name hiding but for purposes of writing memory allocation functions
+what you need to remember is that by default C++ offers the following forms of operator new at global scope:
+
+// normal new
+void* operator new(std::size_t) throw(std::bad_alloc);
+
+
+// placement new
+void* operator new(std::size_t, void*) throw();
+
+
+// nothrow new (Item49)
+void* operator new(std::size_t, const std::nothrow_t&) throw();
+
+
+If you declare any operator new in a class then you'll hide these standard forms
+
+Unless you meant to prevent class clients from using these forms then be sure to make them available 
+to any custom operator new forms you create
+
+For each operator new you make available then be sure to offer the corresponding operator delete
+If you want these functions to behave normally then just have class-specific versions call global versions
+
+
+An easy way to do this is to create a base class containing all the normal forms of new and delete
+
+
+class StandardNewDeleteForms
+{
+public:
+	// normal new and delete
+	static void* operator new(std::size_t size) throw(std::bad_alloc)
+	{
+		return ::operator new(size);
+	}
+	static void operator delete(void* pMemory) throw()
+	{
+		::operator delete(pMemory);
+	}
+
+	// placement new and delete
+	static void* operator new(std::size_t, void* ptr) throw()
+	{
+		return ::operator(size, ptr);
+	}
+	static void operator delete(void* pMemory, void* ptr) throw()
+	{
+		::operator delete(pMemory, ptr);
+	}
+
+	// nothrow new and delete
+	static void* operator new(std::size_t, const std::nothrow_t& nt) throw()
+	{
+		return ::operator(size, nt);	
+	}
+	static void operator delete(void* pMemory, const std::nothrow_t& nt) throw()
+	{
+		::operator delete(pMemory, nt);
+	}
+};	
+
+
+Clients who want to augment the standard forms with custom forms can then just use inheritance
+and using declarations (Item33) to get the standard forms:
+
+
+class Widget : public StandardNewDeleteForms
+{
+public:
+	// make those forms visible
+	using StandardNewDeleteForms::operator new;
+	using StandardNewDeleteForms::operator delete;
+
+	// add a custom placement new
+	static void* operator new(std::size_t, std::ostream& logStream) throw(std::bad_alloc);
+
+	// add corresponding placement delete
+	static void operator delete(void* pMemory, std::ostream& logStream) throw();
+};
+
+
+REMEMBER
+* When you write a placement version of operator new, be sure to write the corresponding placement version of
+  operator delete.  If you don't then your program may experience subtle, intermittent memory leaks
+
+* When you declare placement versions of new and delete then be sure not to unintentionally hide the normal
+  versions of those functions

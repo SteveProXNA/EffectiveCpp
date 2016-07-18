@@ -1,0 +1,122 @@
+// The Strategy Pattern via tr1::function.
+
+#include <functional>
+
+
+// Forward declaration
+class GameCharacter;
+
+// Function for the default health calculation algorithm.
+int defaultHealthCalc(const GameCharacter& gc)
+{
+	return 0;
+}
+
+
+class GameCharacter
+{
+public:
+	// HealthCalcFunc is any callable entity that can be called with
+	// anything compatible with a GameCharacter and that returns
+	// anything compatible with an int; see below for details.
+	typedef std::tr1::function<int (const GameCharacter&)> HealthCalcFunc;
+
+	explicit GameCharacter(HealthCalcFunc hcf = defaultHealthCalc) :
+		healthFunc(hcf)
+	{
+	}
+
+	int healthValue() const
+	{
+		return healthFunc(*this);
+	}
+
+private:
+	HealthCalcFunc healthFunc;
+};
+
+
+class EvilBadGuy : public GameCharacter
+{
+public:
+	explicit EvilBadGuy(HealthCalcFunc hcf = defaultHealthCalc) :
+		GameCharacter(hcf)
+		{
+		}
+};
+
+class EyeCandyGuy : public GameCharacter
+{
+public:
+	explicit EyeCandyGuy(HealthCalcFunc hcf = defaultHealthCalc) :
+		GameCharacter(hcf)
+		{
+		}
+};
+
+
+// New flexibility:
+
+// Health calculation function.
+// Note: non-int return type.
+short calcHealth(const GameCharacter&)
+{
+	return 256;
+}
+
+// Class for health calculation object.
+struct HealthCalculator
+{
+	// Calculation function object.
+	int operator()(const GameCharacter&) const
+	{
+		return 7;
+	}
+};
+
+
+class GameLevel
+{
+public:
+	// Health calculation member function.
+	// Note: non-int return type.
+	float health(const GameCharacter&) const
+	{
+		return 7.5f;
+	}
+};
+
+
+#include "GameCharacter3.h"
+
+using namespace std::tr1::placeholders;
+
+int main()
+{
+	// Character using a health calculation function.
+	GameCharacter* gc1 = new EvilBadGuy(calcHealth);
+
+	// Character using a health calculation function object.
+	GameCharacter* gc2 = new EyeCandyGuy(HealthCalculator());
+
+	int h1 = gc1->healthValue();
+	int h2 = gc2->healthValue();
+
+	delete gc2;
+	delete gc1;
+
+	// New flexibility:
+	GameLevel currentLevel;
+
+	// Character using a health calculation function.
+	GameCharacter* gc3 = new EvilBadGuy(std::tr1::bind(&GameLevel::health, currentLevel, _1));
+
+	int h3 = gc3->healthValue();
+	delete gc3;
+
+	// http://www.cplusplus.com/forum/general/10743/
+	EvilBadGuy gc4(std::tr1::bind(&GameLevel::health, currentLevel, _1));
+	float h4 = gc4.healthValue();
+
+	return 0;
+}

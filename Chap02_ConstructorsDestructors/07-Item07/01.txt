@@ -1,0 +1,30 @@
+09/11/2013
+
+class TimeKeeper
+{
+public:
+	TimeKeeper() {}
+	~TimeKeeper() {}
+};
+
+
+class AtomicClock: public TimeKeeper {};
+class WaterClock: public TimeKeeper {};
+class WristWatch: public TimeKeeper {};
+
+
+#include <stdlib.h>
+#include "TimeKeeper.h"
+
+TimeKeeper* getTimeKeeper()
+{
+	return new AtomicClock;
+}
+
+int main()
+{
+	TimeKeeper* ptk = getTimeKeeper();
+	delete ptk;
+	ptk = NULL;
+	return 0;
+}

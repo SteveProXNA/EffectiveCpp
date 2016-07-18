@@ -1,0 +1,30 @@
+#pragma once
+
+template <typename T>
+class Rational
+{
+public:
+	Rational(const T& numerator = 0, const T& denominator = 1) : n(numerator), d(denominator)
+	{
+	}
+
+	const T numerator() const { return n; }
+	const T denomiator() const { return d; }
+
+private:
+	T n, d;
+};
+
+
+#pragma once
+
+#include "Rational01.h"
+
+int main()
+{
+	Rational<int> oneHalf(1, 2);
+
+	// Rational<T>' does not define this operator or a conversion to a type acceptable to the predefined operator
+	// Rational<int> result = oneHalf * 2;
+	return 0;
+}

@@ -1,0 +1,33 @@
+07/11/2013
+
+#include <string>
+
+class CTextBlock
+{
+public:
+	CTextBlock(char* t) : pText(t)
+	{
+	}
+
+	// Inappropriate (but bitwise const) declaration.
+	char& operator[](std::size_t position) const
+	{
+		return pText[position];
+	}
+
+private:
+	char* pText;
+};
+
+
+#include <iostream>
+#include "CTextBlock.h"
+
+int main()
+{
+	const CTextBlock cctb("Hello");
+	char* pc = &cctb[0];
+	*pc = 'J';		// Unhandled exception at 0x0122222B in 03-Item03.exe: 0xC0000005: Access violation writing location 0x0122DC7C.
+
+	return 0;
+}

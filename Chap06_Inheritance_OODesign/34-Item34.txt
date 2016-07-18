@@ -1,0 +1,395 @@
+34 Item34
+17-Dec-2013
+
+
+Item 34: Differentiate between inheritance of interface and inheritance of implementation 
+
+
+Public inheritance is composed of 2x separable parts:
+1. inheritance of function interfaces
+2. inheritance of function implementations
+
+
+Difference between 2x kinds of inheritance corresponds exactly to the
+difference between function declarations and function definitions
+
+
+CLASS Designer
+Sometimes want derived classes to inherit:
+1. only the interface (declaration) of member functions
+2. both the function's interface and implementation but allow them to override the implementation they inherit
+3. function's interface and implementation without allowing them to override anything
+
+
+EXAMPLE
+class Shape
+{
+public:
+  virtual void draw() const = 0;
+  virtual void error(const std::string& msg);
+  int objectID() const;
+  ...
+};
+
+
+class Rectangle: public Shape { ... };
+class Ellipse: public Shape { ... };
+
+
+Shape is an abstract base class because it has at least one pure virtual function draw()
+Clients cannot create instances of Shape class, only classes derived from it
+
+Shape exerts a strong influence on all classes that (publicly) inherit from it because
+member function interfaces are always inherited
+
+
+Item32 public inheritance means "is-a" so anything true for base class must be true for derived classes
+If function applies to base class then it must also apply to derived class
+
+
+3x functions in Shape are declared in different way:
+draw()		is pure virtual function
+error()		is simple (impure) function
+objectID()	non-virtual function
+
+
+IMPLICATIONS
+
+01.
+draw()		is pure virtual function
+
+Pure virtual functions MUST be redeclared by any concrete class that inherits them
+Typically have no definition in abstract class
+
+Purpose of declaring pure virtual function is to have derived classes inherit a function INTERFACE ONLY
+
+
+All Shape objects must be drawable but Shape class can provide no reasonable default implementation for that function
+e.g. algorithm for drawing Rectangle is different from Ellipse
+
+Shape::draw() says to concrete derived classes: "You must provide a draw function but I have no idea how to implement it"
+
+
+Note: it is possible to provide a definition for pure virtual function i.e. provide an implementation for Shape::draw()
+and C++ wouldn't complain but the only way to call it would be to qualify the call with the class name
+
+Shape* ps = new Shape;			// Error Shape is abstract
+Shape* ps1 = new Rectangle;		// Fine.
+ps1->draw();				// Calls Rectangle::draw()
+
+Shape* ps2 = new Ellipse;		// Fine.
+ps2->draw();				// Calls Ellipse::draw()
+
+ps1->Shape::draw();			// Calls Shape::draw()
+ps2->Shape::draw();			// Calls Shape::draw()
+
+
+02.
+error()		is simple (impure) function
+
+Simple (impure) virtual functions are different from pure virtual functions
+Derived classes inherit the interface of the function but simple virtual functions provide implementation that
+derived classes may override
+
+Purpose of declaring simple (impure) virtual function is to have derived classes inherit a function
+INTERFACE AS WELL AS A DEFAULT IMPLEMENTATION
+
+
+class Shape
+{
+public:
+  virtual void error(const std::string& msg);
+  ...
+};
+
+
+Interface says every class must support a function to be called when error encountered but each class is free to
+handle errors in whatever way it sees fit; if doesn't want to do anything special then use default error handling (in Shape class)
+
+Shape::error() says to concrete derived classes: "You've got to support an error function but if you don't want to write your own
+then you can fall back on the default version in the Shape class"
+
+
+Note: can be dangerous to allow simple virtual functions to specify both function interface and default implementation
+Example: hierarchy for airplanes
+
+
+// represents airports
+class Airport { ... };                     
+
+
+class Airplane
+{
+public:
+  virtual void fly(const Airport& destination);
+  ...
+};
+
+void Airplane::fly(const Airport& destination)
+{
+  default code for flying an airplane to the given destination
+}
+
+
+class ModelA: public Airplane { ... };
+class ModelB: public Airplane { ... };
+
+
+All planes support fly() function and different planes implement fly() differently = Airplane::fly() declared virtual
+2x common classes ModelA and ModelB share common code in base class Airplane to avoid code duplications
+
+
+Now ModelC type of ariplace differs from ModelA + ModelB = flown differently
+In haste, forgot to redefine fly() function
+
+
+class ModelC: public Airplane
+{
+  // no fly function is declared
+  ...
+};
+  
+
+In code they have something like:
+Airport PDX(...);
+Airplane* pa = new ModelC;
+
+// calls Airplane::fly();
+pa->fly(PDX);
+
+                              
+An attempt being made to fly ModelC object as if it were ModelA or ModelB
+No required behavior
+
+Problem not that Airplane::fly has default behavior but ModelC was allowed to inherit that behavior without
+explicitly saying that it wanted to
+
+Fortunately, easy to offer default behavior to derived classes but not give it unless they ask for it
+
+
+TRICK
+Sever the connection between the interface of the virtual function and its default implementation
+
+
+e.g.
+class Airplane
+{
+public:
+  virtual void fly(const Airport& destination) = 0;
+  ...
+
+protected:
+  void defaultFly(const Airport& destination);
+};
+
+
+void Airplane::defaultFly(const Airport& destination)
+{
+  default code for flying an airplane to the given destination
+}
+
+
+Now Airplane::fly() has been turned into a pure virtual function - that provides the interface for flying
+Default implementation also present in Airplane class but now in the form of an independent function defaultFly()
+
+
+Classes ModelA + ModelB use default behavior simply make inline call to defaultFly() inside fly() body
+Item30 => more info on interaction of inlining and virtual functions
+
+
+class ModelA: public Airplane
+{
+public:
+  virtual void fly(const Airport& destination)
+  {
+    defaultFly(destination);
+  }
+  ...
+};
+
+
+class ModelB: public Airplane
+{
+public:
+  virtual void fly(const Airport& destination)
+  {
+    defaultFly(destination);
+  }
+  ...
+};
+
+
+ModelC has no possibility of accidentally inheriting incorrect implementation of fly() because
+the pure virtual function in Airplane forces ModelC to provide its own version of fly()
+
+class ModelC: public Airplane
+{
+public:
+  virtual void fly(const Airport& destination);
+  ...
+};
+
+
+void ModelC::fly(const Airport& destination)
+{
+  code for flying a ModelC airplane to the given destination
+}
+
+
+Scheme not foolproof: copy + paste into trouble but more reliable than the original design
+Airplane::defaultFly() is protected because it's truly an implementation detail of Airplane and derived classes
+
+Clients using airplanes should care only that they can be flown, not how the flying is implemented
+
+
+Also important that Airplane::defaultFly() is non-virtual so no derived class can redefine this function (Item36)
+if defaultFly() were virtual then you'd have a circular problem: if derived class forgets to redefine defaultFly()
+
+
+OBJECTION
+Having separate functions for providing interface and default implementation e.g. fly() and defaultFly() above
+e.g. pollutes the namespace with a proliferation of closely related function names
+
+Agree: interface and default implementation should be separated.  How resolve contradiction?
+
+Answer take advantage of fact that pure virtual functions must be redeclared in concrete derived classes
+but may also have implementations of their own
+
+
+Here is how Airplane hierarchy can take advantage of ability to define a pure virtual function:
+
+
+class Airplane
+{
+public:
+  virtual void fly(const Airport& destination) = 0;
+  ...
+};
+
+
+// an implementation of a pure virtual function
+void Airplane::fly(const Airport& destination)     
+{                                                  
+  default code for flying an airplane to the given destination
+}
+
+
+class ModelA: public Airplane
+{
+public:
+  virtual void fly(const Airport& destination)
+  {
+    Airplane::fly(destination);
+  }
+  ...
+};
+
+
+class ModelB: public Airplane
+{
+public:
+  virtual void fly(const Airport& destination)
+  {
+    Airplane::fly(destination);
+  }
+  ...
+};
+
+
+class ModelC: public Airplane
+{
+public:
+  virtual void fly(const Airport& destination);
+  ...
+};
+
+
+void ModelC::fly(const Airport& destination)
+{
+
+  code for flying a ModelC airplane to the given destination
+}
+
+
+Almost exactly same design before except that the body of the pure virtual function Airplane::fly()
+takes the place of the independent function Airplane::defaultFly()
+
+In essence, fly() has been broken into its 2x fundamental components:
+Declaration specifies its interface (which derived classes must use)
+Definition specifies its default behavior (which derived classes may use but only if they explicitly request it)
+
+
+Merging fly() and defaultFly() you've lost the ability to give the 2x functions different protection levels:
+the code that used to be protected (by being defaultFly()) is now public (because it's fly())
+
+
+03.
+objectID()	non-virtual function
+
+
+class Shape
+{
+public:
+  int objectID() const;
+  ...
+};
+
+
+When member function is non-virtual then it's not supposed to behave differently in derived classes
+
+In fact, non-virtual member function specifies an INVARIANT OVER SPECIALIZATION
+because it identifies behavior that is not supposed to change no matter how specialized a derived class becomes
+
+Purpose of declaring non-virtual function is to have derived classes inherit a function interface plus mandatory implementation
+
+
+Shape::objectID() says "Every Shape object has a function that yields an object identifier and that 
+object identifier is always computed the same way
+
+The definition of Shape::objectID() is no derived class should try to change how it's done
+Because a non-virtual function identifies an invariant over specialization it should never be redefined in derived class (Item36)
+
+
+DIFFERENCES
+Pure virtual	interface only
+Simple virtual	interface and default implementation
+Non virtual	interface and mandatory implementation
+
+
+These different types of declarations mean fundamentally different things
+You must choose carefully when you declare member functions
+
+If you do then you avoid 2x common mistakes:
+MISTAKES
+
+01.
+Declare all functions non-virtual
+No room for specialization in derived classes; non-virtual destructors particularly problematic (Item7)
+
+Ignorance of difference btwn virtual and non-virtual functions or unsubstantiated concern over performance cost of virtual functions
+Fact: almost any class to be used as base class will have virtual functions (Item7)
+
+
+Concern about cost of virtual functions - see empirically-based rule 80-20 (Item30)
+States "in typical program, 80% of runtime spent executing 20% of the code"
+
+Before worry about cost of virtual functions, ensure that you focusing on 20% of program
+where the decision might really make a difference
+
+
+02.
+Declare all member functions virtual.  Item31 interface classes is right thing to do
+However, some functions should NOT be redefinable in derived classes: got to say so and make those functions non-virtual
+
+Don't pretend class can be all things to all people; if you have an invariant over specialization then don't be afraid to say so!
+
+
+REMEMBER
+* Inheritance of interface is different from inheritance of implementation
+  Under public inheritance, derived classes always inherit base class interfaces
+
+* Pure virtual functions specify inheritance of interface only
+
+* Simple (impure) virtual functions specify inheritance of interface plus inheritance of a default implementation
+
+* Non-virtual functions specify inheritance of interface plus inheritance of a mandatory implementation

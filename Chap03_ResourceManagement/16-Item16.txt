@@ -1,0 +1,90 @@
+16 Item16
+27-Nov-2013
+
+
+Item 16: Use the same form in corresponding uses of new and delete. 
+
+
+std::string* stringArray = new std::string[100];
+delete stringArray;
+
+
+99 of the 100 string objects pointed by stringArray are unlikely to be properly destroyed
+because their destructors will probably never be called
+
+
+NEW expression (dynamic creation of an object via use of new)
+2x things happen:
+
+01.
+Memory is allocated (via function name operator new)
+
+02.
+One or more constructors are called for that memory
+
+
+DELETE expression (use delete)
+How many objects reside in the memory being deleted?
+Answer determines how many destructors must be called
+
+
+Does the pointer being deleted point to a single object or to an array of objects?
+Critical because memory layout for single objects generally different from memory layout for arrays
+
+
+Memory for an array usually includes the size of the array making it easy for delete to know how many destructors to call
+Memory for single object lacks this information
+
+
+SINGLE	Object
+ARRAY	n	Object	Object	Object
+
+where n is the size of the array
+
+
+When you use delete on a pointer, the only way for delete to know whether the array size information is there is for you to tell it:
+When you use delete[] (with brackets in your delete) C++ delete assumes an array is pointed to - otherwise single object pointed to
+
+
+EXAMPLE
+std::string* stringPtr1 = new std::string;
+std::string* stringPtr2 = new std::string[100];
+
+delete stringPtr1;	// delete single object
+delete[] stringPtr2;	// delete array of objs
+
+
+WHAT IF
+01.
+delete[] stringPtr1;
+Undefined.  delete would read some memory and interpret it as an array size
+Then start invoking that many destructors!
+
+
+02.
+delete stringPtr2;
+Undefined.  delete would call too few destructors
+Undefined for built-in type too e.g. int (lack destructors)
+
+
+RULE
+If you use [] in new expression then you MUST use [] in the corresponding delete expression
+If you don't use [] in a new expression then don't use [] in the matching delete expression
+
+
+IMPORTANT
+When writing a class containing a pointer to dynamically allocated memory and also offering multiple constructors
+Because you must be careful to use the same form of new in ALL constructors otherwise how will you know what form of destructor?
+
+
+Typedef
+A typedef author MUST document which form of delete should be employed when new is used to conjure up objects of the typedef
+If you don't then how will you know what form of delete to use in your destructor?
+
+To avoid such confusion ABSTAIN from typedefs for array types.  Easy because C++ STL includes string and vector
+And those templates reduce the need for dynamically allocated arrays to nearly zero
+
+
+REMEMBER
+* If you use [] in new expression then you MUST use [] in the corresponding delete expression
+* If you don't use [] in a new expression then don't use [] in the matching delete expression

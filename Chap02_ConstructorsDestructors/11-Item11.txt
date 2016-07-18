@@ -1,0 +1,194 @@
+11 Item11
+10-Nov-2013
+
+
+Item 11: Handle assignment to self in operator=
+
+
+Assignment to self occurs when object is assigned to itself
+
+class Widget { ... };
+Widget w;
+
+w = w;			// assignment to self
+
+
+Looks silly but can happen implicitly
+e.g.
+
+a[i] = a[j];		// potential assignment to self if i and j have same index
+*px = *py;		// potential assignment to self if px and py point to same memory
+
+
+Otherwise, less obvious assignment to self are the result of aliasing:
+Having more than one way to refer to an object
+
+
+E.g.
+Code that operates on pointers or references to multiple objects of the same type
+Or two objects declared different types but in the same type hierarchy
+
+class Base { ... };
+class Derived : public Base { ... };
+
+// rb and pd might actually be same object
+void doSomething(const Base& rb, Derived* pd);		
+
+
+RAII
+Resource Acquisition Is Initialization
+
+Use objects to manage resources then ensure resource-managing objects behave well when copied
+When that's the case, your assignment operators should be self-assignment safe also, otherwise
+
+Don't fall into trap of accidentally releasing a resource before you're done using it!
+
+e.g.
+Class that holds raw pointer to dynamically allocated bitmap
+
+
+class Bitmap { ... };
+
+
+class Widget
+{
+private:
+  Bitmap *pb;                                     // ptr to a heap-allocated object
+};
+
+
+Copy assignment operator looks reasonable but it's unsafe for assignment to self
+(also not exception safe)
+
+
+// unsafe impl. of operator=
+Widget& Widget::operator=(const Widget& rhs)              
+{
+  delete pb;                                      // stop using current bitmap
+  pb = new Bitmap(*rhs.pb);                       // start using a copy of rhs's bitmap
+
+  return *this;
+}
+
+
+PROBLEM
+rhs (source) and *this (target of assignment) could potentially be the same object
+When they are the delete destroys bitmap in current object AND for rhs as well
+
+operator= (which should not have changed by assignment to self)
+finds itself holding a pointer to a deleted object!
+
+
+Solution
+Identity test
+Put (if this == &rhs) at the top of the copy assignment operator
+
+
+Widget& Widget::operator=(const Widget& rhs)
+{
+  if (this == &rhs) return *this;   // identity test: if a self-assignment, do nothing
+
+  delete pb;
+  pb = new Bitmap(*rhs.pb);
+
+  return *this;
+}
+
+
+This "works" but it is still NOT exception safe
+
+e.g.
+If "new Bitmap" yields an exception then Widget will still get pointer to deleted Bitmap object
+(insufficient memory for the allocation or Bitmap copy constructor throws)
+
+
+If you have pointer to deleted object then this is toxic:
+you can't delete pointer
+you can't read pointer
+
+
+Solution
+Make copy assignment operator exception-safe typically renders self-assignment-safe too
+Carefully re-order the statements can yield exception-safe (and self-assignment-safe) code
+
+i.e.
+Do NOT delete pb until after we've copied what it points to:
+
+
+Widget& Widget::operator=(const Widget& rhs)
+{
+  Bitmap *pOrig = pb;               // remember original pb
+  pb = new Bitmap(*rhs.pb);         // make pb point to a copy of *pb
+
+  delete pOrig;                     // delete the original pb
+  return *this;
+}
+
+
+If "new Bitmap" throws an exception then pb remains unchanged
+
+
+This code also handles self-assignment test because we make copy of the original bitmap,
+delete the original bitmap, then point to the copy we made
+
+It may not be the most efficient way to handle self-assignment, but it does work!
+
+
+ALTERNATIVE
+An alternative to re-ordering the statements (to make exception + self-assignment safe)
+is to use technique: "copy and swap"
+
+
+class Widget
+{
+  void swap(Widget& rhs);   	// exchange *this's and rhs's data;
+};
+
+
+Widget& Widget::operator=(const Widget& rhs)
+{
+  Widget temp(rhs);             // make a copy of rhs's data
+  swap(temp);                   // swap *this's data with the copy's
+  return *this;
+}
+
+
+Note: my implementation I cast away constness
+Widget4& Widget4::operator=(const Widget4& rhs)
+{
+	// Copy constructor: make copy of rhs data.
+	Widget4 temp(rhs);
+
+
+	swap(const_cast<Widget4&>(rhs));
+	return *this;
+}
+
+
+
+A variation on "copy and swap" theme takes advantage that class copy assignment operator
+may be declared to take its argument by value and pass something that makes a copy of it
+
+Whenever we pass by value this invokes the object copy constructor!!
+
+
+// rhs is a copy of the object passed in — note pass by val
+Widget& Widget::operator=(Widget rhs)
+{
+  swap(rhs);                        // swap *this's data with the copy's    
+  return *this;
+}
+
+
+By moving the copy operation from the body of the operator= function to the construction 
+of the input parameter (rhs), compilers sometimes generate more efficient code (ADV)
+
+
+REMEMBER
+* Make sure operator= is well-behaved when an object is assigned to itself.
+
+  Techniques include comparing addresses of source and target objects,
+  careful statement ordering, and copy-and-swap
+
+* Make sure that any function operating on more than one object behaves correctly
+  if two or more of the objects are the same

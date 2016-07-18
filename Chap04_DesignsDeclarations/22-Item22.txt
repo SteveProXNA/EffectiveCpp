@@ -1,0 +1,123 @@
+22 Item22
+02-Dec-2013
+
+
+Item 22: Declare data members private
+
+
+Plan:
+see why data members should not be public
+see all arguments against public data members apply to protected
+conclude that data members should be private
+
+
+PUBLIC
+
+01.
+Syntactic consistency:
+if data members aren't public then only way for clients to access an object is via member functions
+
+if everything in public interface is a function then don't have to remember parentheses or not:
+when they want access to member of the class then use parentheses because everything is a function
+
+
+02.
+Access control
+Using functions gives you precise control over the accessibility of data members
+If you make data members public then everybody has read / write access to them
+
+But if you use functions to get or set its value then you can implement:
+no access
+read-only access
+read-write access
+write-only access (if you want!)
+
+
+class AccessLevels
+{
+public:
+	int getReadOnly() const { return readOnly; }
+
+	int getReadWrite() const { return readWrite; }
+	void setReadWrite(int value) { readWrite = value; }
+
+	void setWriteOnly(int value) { writeOnly = value; }
+
+private:
+	int noAccess;
+	int readOnly;
+	int readWrite;
+	int writeOnly;
+};
+
+
+Such fine grained control is important because many data members SHOULD be hidden
+Rarely does every data member need a getter and setter
+
+
+03.
+Encapsulation
+If you access a data member through a function then you can later replace the data member with
+a computation and nobody using your class will be any the wiser
+
+e.g.
+class SpeedDataCollection
+{
+public:
+	void addValue(int speed);
+	double averageSpeedSoFar() const;
+};
+
+
+Important: when access the average through member function (i.e. encapsulation) you can interchange
+different implementations and clients will at most have to recompile (not change any client code)
+
+
+Hiding data members behind functional interfaces offers all kinds of implementation flexibility
+e.g. makes it easy to notify other objects when data members are read or written to
+
+
+If you hide your data members from your clients (encapsulate them) then you can ensure that class
+invariants are always maintained because only member functions can affect them
+
+To change anything public is extremely restricted because too much client code will be broken
+Public means unencapsulated which means unchangeable esp. for classes that are widely used
+
+Yet widely used classes are most in need of encapsulation because they are the ones that can most
+benefit from the ability to replace one implementation with a better one
+
+
+PROTECTED
+
+Arguments for syntactic consistency and (fine-grained) access control is applicable to protected data as public
+Encapsulation: practically speaking, protected data members are not more encapsulated than public ones
+
+
+Item23 Encapsulatedness of a data member is inversely proportional to amount of code that might be broken
+if that data member changes e.g. if it's removed from the class
+
+Example
+Public data member is eliminated; how much code might be broken?
+All client code that uses it = unknowably large amount of code
+Public data members are thus completely unencapsulated
+
+Protected data member is eliminated; how much code might be broken?
+All the derived classes that use it = unknowably large amount of code
+Protected data members are as unencapsulated as public ones
+
+In both cases, if the data members are changed then an unknowably large amount of client code is broken
+Once data member declared public (or protected) then it is very hard to change anything about that data member
+
+Too much code has to be rewritten, retested, redocumented or recompiled
+
+
+SUMMARY
+From encapsulation point-of-view, there are 2x access levels:
+private (which offers encapsulation) and everything else (which doesn't)
+
+
+REMEMBER
+* Declare data members private.  It gives clients syntactically uniform access to data, affords
+  fine-grained access control, allows invariants to be enforced, and offers class authors impl. flexibility
+
+* protected is no more encapsulated than public

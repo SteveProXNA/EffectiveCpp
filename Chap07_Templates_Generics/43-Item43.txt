@@ -1,0 +1,168 @@
+43 Item43
+18-Feb-2014
+
+
+Item 43: Know how to access names in templatized base classes
+
+
+Example:
+Messages clear text or encrypted
+
+void sendCleartext(const std::string& msg);
+void sendEncrypted(const std::string& msg);
+
+
+Derived class adds logging capability
+
+template<typename Company>
+class LoggingMsgSender: public MsgSender<Company>
+{
+public:
+
+  void sendClearMsg(const MsgInfo& info)
+  {
+    write "before sending" info to the log;
+    sendClear(info);                     
+    write "after sending" info to the log;
+  }
+};
+
+
+Send function in derived class has different name than in base
+Good design because it side-steps the issue of hiding inherited names plus redefining an inherited non-virtual function (Item36)
+
+But won't compile: compilers complain sendClear() doesn't exist
+Why?
+
+
+Problem is when compilers encounter definitions for class template then don't know what class it inherits from
+Template parameter won't be known until later when class is instantiated - no way to know what it looks like
+
+
+Create specialized version
+
+template<>                                 
+class MsgSender<CompanyZ>
+{
+public:
+
+  void sendSecret(const MsgInfo& info)
+  {
+  }
+};
+
+
+Note "template<>"
+signifies neither template nor standalone class
+
+It's a specialized version of the template when template argument is CompanyZ
+Total template specialization
+
+The specialization is total - once type parameter defined to be CompanyZ then no other aspect of template's parameters can vary
+
+
+template<typename Company>
+class LoggingMsgSender: public MsgSender<Company>
+{
+public:
+
+  void sendClearMsg(const MsgInfo& info)
+  {
+    write "before sending" info to the log;
+    sendClear(info);
+    write "after sending" info to the log;
+  }
+};
+
+
+Now see code makes no sense when the base class is MsgSender<CompanyZ> because that class offers no sendClear function
+C++ rejects call: it recognizes base class templates may be specialized and specializations may not offer same interface
+
+Result: it refuses to look in templatized base classes for inherited names
+When cross from Object-orientated C++ to Template C++, inheritance stops working
+
+
+To restart, must disable C++ "don't look in templatized base classes" behavior
+3x ways to do this:
+
+
+01.
+Preface calls to base class with "this->"
+
+
+template<typename Company>
+class LoggingMsgSender: public MsgSender<Company>
+{
+public:
+
+  void sendClearMsg(const MsgInfo& info)
+  {
+    write "before sending" info to the log;
+    this->sendClear(info);                
+    write "after sending" info to the log;
+  }
+};
+
+
+02.
+Employ using declaration similar to Item33
+using declarations bring hidden base class names into derived class scope
+
+
+template<typename Company>
+class LoggingMsgSender: public MsgSender<Company>
+{
+public:
+
+  using MsgSender<Company>::sendClear;   
+
+  void sendClearMsg(const MsgInfo& info)
+  {
+    sendClear(info);                   
+  }
+};
+
+
+NB: while using declaration works here and Item33, the problems being solved are different
+
+Here, the situation isn't that base class names are hidden by derived class names
+it's that compilers don't search base class scopes unless we tell them to
+
+
+03.
+Explicitly specify that the function being called is in the base class
+
+
+template<typename Company>
+class LoggingMsgSender: public MsgSender<Company>
+{
+public:
+
+  void sendClearMsg(const MsgInfo& info)
+  {
+    MsgSender<Company>::sendClear(info);      
+  }                                           
+};
+
+
+this is the least desirable way to solve the problem because if the function being called is virtual
+then explicit qualification turns off the virtual binding behavior
+
+
+Each solution does the same thing:
+It promises compilers that any subsequent specializations of the base class template will support interface offered by template
+This is all compilers need when they parse a derived class template but if promise unfounded then emerge during compilation
+
+
+Fundamentally, the issue is whether compilers will diagnose invalid references to base class members sooner
+(when derived class template definitions are parsed) or later (when those templates are instantiated with specific arguments)
+
+C++ policy is to prefer early diagnoses and that's why it assumes it knows nothing about the contents of base classes
+when those classes are instantiated from templates
+
+
+REMEMBER 
+* In derived class templates, refer to names in base class templates via
+  1. "this-> prefix
+  2. using declarations
+  3. explicit base class qualification

@@ -1,0 +1,68 @@
+// Represents airports
+class Airport
+{
+};
+
+
+class Airplane
+{
+public:
+	virtual void fly(const Airport& destination) = 0;
+
+protected:
+	void defaultFly(const Airport& destination);
+};
+
+void Airplane::defaultFly(const Airport& destination)
+{
+	// default code for flyaing an airplane to the given destination.
+}
+
+
+class ModelA : public Airplane
+{
+public:
+	virtual void fly(const Airport& destination)
+	{
+		defaultFly(destination);
+	}
+};
+
+class ModelB : public Airplane
+{
+public:
+	virtual void fly(const Airport& destination)
+	{
+		defaultFly(destination);
+	}
+};
+
+class ModelC : public Airplane
+{
+public:
+	virtual void fly(const Airport& destination);
+};
+
+void ModelC::fly(const Airport& destination)
+{
+	// code for flyaing a ModelC airplane to the given destination.
+}
+
+
+#include "Airport2.h"
+
+int main()
+{
+	Airport a;
+
+	Airplane* b = new ModelB;
+	b->fly(a);
+
+	Airplane* c = new ModelC;
+	c->fly(a);
+
+	delete c;
+	delete b;
+
+	return 0;
+}

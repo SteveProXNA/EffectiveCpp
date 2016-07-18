@@ -1,0 +1,31 @@
+class BorrowableItem
+{
+public:
+	void checkOut()
+	{
+	}
+};
+
+
+class ElectronicGadget
+{
+public:
+	bool checkOut() const;
+};
+
+
+class Mp3Player : public BorrowableItem, public ElectronicGadget
+{
+};
+
+
+#include "BorrowableItem.h"
+
+int main()
+{
+	Mp3Player mp;
+	//mp.checkOut();				// error C2385: ambiguous access of 'checkOut'
+
+	mp.BorrowableItem::checkOut();	// ah, that checkout
+	return 0;
+}

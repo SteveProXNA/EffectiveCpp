@@ -1,0 +1,32 @@
+#pragma once
+
+#include <sstream>
+#include "Lock.h"
+
+class Image
+{
+public:
+	Image(std::istream& i) : img(i) {}
+
+private:
+	std::istream& img;
+};
+
+class PrettyMenu
+{
+public:
+	void changeBackground(std::istream& imgSrc);
+
+private:
+	Mutex mutex;
+	Image* bgImage;
+	int imageChanges;
+};
+
+void PrettyMenu::changeBackground(std::istream& imgSrc)
+{
+	Lock m1(&mutex);
+	delete bgImage;
+	++imageChanges;
+	bgImage = new Image(imgSrc);
+}

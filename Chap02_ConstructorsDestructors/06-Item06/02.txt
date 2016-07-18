@@ -1,0 +1,17 @@
+#include "Uncopyable.h"
+
+class HomeForSale : private Uncopyable
+{
+};
+
+
+class Uncopyable
+{
+protected:
+	Uncopyable() {}
+	~Uncopyable() {}
+
+private:
+	Uncopyable(const Uncopyable&);
+	Uncopyable& operator=(const Uncopyable&);
+};

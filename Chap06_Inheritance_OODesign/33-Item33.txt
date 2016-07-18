@@ -1,0 +1,266 @@
+33 Item33
+16-Dec-2013
+
+
+Item 33: Avoid hiding inherited names 
+
+
+Inherited names in C++ has nothing to do with names; it has to do with scope
+e.g.
+
+
+int x;                        // global variable
+
+void someFunc()
+{
+  double x;                   // local variable
+  std::cin >> x;              // read a new value for local x
+}
+
+
+
+x refers to the local variable x instead of the global variable x
+because names in inner scopes hide ("shadow") names in outer scopes
+
+
+When someFunc() encounters the name x, they look in local scope
+Because there is, they never examine any other scope
+
+In this case x type is double and global x is type int doesn't matter:
+C++ name hiding rules do just that: hide names only
+
+Whether the names correspond to the same or different types is immaterial
+In this case, a double names x hides an int named x
+
+
+Enter inheritance
+Inside derived member function and refer to something in base class then compilers can find
+what they're referring to because derived classes inherit things in base classes
+
+Scope of derived class is nested inside its base class's scope
+
+
+class Base
+{
+private:
+  int x;
+
+public:
+  virtual void mf1() = 0;
+  virtual void mf2();
+  void mf3();
+  ...
+};
+
+
+class Derived: public Base
+{
+public:
+  virtual void mf1();
+  void mf4();
+  ...
+};
+
+
+Discussion of names - what they're names of is irrelevant
+and applies to single and multiple inheritance
+
+
+void Derived::mf4()
+{
+  ...
+  mf2();
+  ...
+}
+
+
+Compilers see mf2() here they have to figure out what mf2() refers to
+Search scopes for declaration on something named mf2()
+
+Look in local scope (that of mf4()) but find no declaration for mf2()
+Search class Derived and still find nothing named mf2()
+
+So move to scope of base class and find something named mf2() so search stops
+If no base then search continues to namespace containing Base and, if any, finally to global scope
+
+
+Consider overload mf1() and mf3() and add a version of mf3 to Derived
+Note: Item36 explains not to overload mf3 - an inherited non-virtual function
+
+
+class Base
+{
+private:
+  int x;
+
+public:
+  virtual void mf1() = 0;
+  virtual void mf1(int);
+  virtual void mf2();
+
+  void mf3();
+  void mf3(double);
+  ...
+};
+
+
+class Derived: public Base
+{
+public:
+  virtual void mf1();
+  void mf3();
+  void mf4();
+  ...
+};
+
+
+SURPRISE
+Scope-based name hiding rule hasn't changed, so ALL functions named mf1() and mf3() in the base class
+are hidden by the functions named mf1() and mf3() in the derived class
+
+From name lookup perspective, Base::mf1() and Base::mf3() are no longer inherited by Derived!
+
+
+Derived d;
+
+int x;
+...
+
+d.mf1();                   // fine, calls Derived::mf1
+d.mf1(x);                  // error! Derived::mf1 hides Base::mf1
+
+d.mf2();                   // fine, calls Base::mf2
+
+d.mf3();                   // fine, calls Derived::mf3
+d.mf3(x);                  // error! Derived::mf3 hides Base::mf3
+
+
+This applies even though the functions in the base and derived classes take different parameter types
+and also applies regardless of whether the functions are virtual or non-virtual
+
+Same as above, double x in the function someFunc() hides int x at global scope
+here the function mf3() in Derived hides a Base function named mf3() that has a different type
+
+
+RATIONALE
+This behavior prevents you from accidentally inheriting overloads from distant base classes
+when you create a new derived class in a library or application framework
+
+Unfortunately, you typically WANT to inherit the overloads
+
+In fact, if using public inheritance and don't inherit the overloads then you're violating the "is-a"
+relationship between base and derived classes that Item32 explains is fundamental to public inheritance
+
+
+That being the case, you'll almost always want to override C++ default hiding of inheriting names
+
+class Base
+{
+private:
+  int x;
+
+public:
+  virtual void mf1() = 0;
+  virtual void mf1(int);
+
+  virtual void mf2();
+
+  void mf3();
+  void mf3(double);
+  ...
+};
+
+
+class Derived: public Base 
+{
+public:
+  using Base::mf1;       // make all things in Base named mf1 and mf3
+  using Base::mf3;       // visible (and public) in Derived's scope
+
+  virtual void mf1();
+  void mf3();
+  void mf4();
+  ...
+};
+
+
+
+Now inheritance will work as expected:
+
+Derived d;
+int x;
+...
+
+d.mf1();                 // still fine, still calls Derived::mf1
+d.mf1(x);                // now okay, calls Base::mf1
+
+d.mf2();                 // still fine, still calls Base::mf2
+
+d.mf3();                 // fine, calls Derived::mf3
+d.mf3(x);                // now okay, calls Base::mf3
+
+
+This means that if you inherit from a base class with overloaded functions and you want to redefine or
+override only some functions then you need to include a using declaration for each name you'd hide
+
+If you don't then some of the names you'd like to inherit will be hidden
+
+
+Sometimes you don't want to inherit all the functions from your base classes
+Under public inheritance, this should never be the case as it violates the "is-a" relationship
+
+That's why using declarations above are in the public part of the derived class:
+names that are public in a base class should also be public in a publicly derived class
+
+
+Under private inheritance (Item39) it can make sense
+
+e.g.
+Suppose Derived privately inherits from Base and the only version of mf1() that Derived wants to inherit
+is the one taking no parameters
+
+A using declaration won't do the trick here, because a using declaration makes ALL inherited functions
+with a given name visible in the derived class
+
+No, this is a case for a different technique, namely simple forwarding function
+
+
+class Base{
+public:
+  virtual void mf1() = 0;
+  virtual void mf1(int);
+};
+
+
+class Derived: private Base
+{
+public:
+  // forwarding function; 
+  // implicitly inline (see Item30)
+  virtual void mf1()                   
+  {
+    Base::mf1(30);
+  }                     
+  ...
+};
+
+
+Derived d;
+int x;
+
+d.mf1();                               // fine, calls Derived::mf1
+d.mf1(x);                              // error! Base::mf1() is hidden
+
+
+Another use for inline forwarding functions is to work around ancient compilers that (incorrectly)
+don't support using declarations to import inherited names into the scope of a derived class
+
+Finally, Item43 shows when inheritance is combined with templates;
+an entirely different form of the "inherited names are hidden" issue arises
+
+
+REMEMBER
+* Names in derived classes hide names in base classes
+  Under public inheritance, this is never desirable
+
+* To make hidden names visible again, employ using declarations or forwarding functions

@@ -1,0 +1,165 @@
+41 Item41
+10-Feb-2014
+
+
+Item 41: Understand implicit interfaces and compile-time polymorphism 
+
+
+Template meta programming
+The creation of programs that execute inside C++ compilers and stop running when compilation is complete.
+
+
+Item 41: Understand implicit interfaces and compile-time polymorphism
+
+
+OOP revolves around explicit interfaces and runtime polymorphism
+
+class Widget
+{
+public:
+  Widget();
+  virtual ~Widget();
+  virtual std::size_t size() const;
+  virtual void normalize();
+  void swap(Widget& other);                 // see Item 25
+};
+
+
+
+void doProcessing(Widget& w)
+{
+  if (w.size() > 10 && w != someNastyWidget)
+  {
+      Widget temp(w);
+      temp.normalize();
+      temp.swap(w);
+  }
+}
+
+
+
+01.
+w in doProcessing:
+w is of type Widget then w MUST support Widget interface
+Lookup interface in *.h file in source code	EXPLICIT INTERFACE
+
+
+Because Widget member functions are virtual then w calls to those functions
+exhibit runtime polymorphism and specific function call determined at runtime based on w dynamic type (Item 37)
+
+
+However, templates and generic programming focus on implicit interfaces and compile-time polymorphism
+
+
+template<typename T>
+void doProcessing(T& w)
+{
+  if (w.size() > 10 && w != someNastyWidget)
+  {
+     T temp(w);
+     temp.normalize();
+     temp.swap(w);
+  }
+}
+
+
+01.
+w in doProcessing:
+Interface w must support determined by the operations performed on w in the template
+
+e.g. w type(T) must support size(), normalize(), swap() member functions
+copy constructor and comparison for equality
+
+IMPORTANT
+set of expressions that must be valid in order for template to compile is the implicit interface
+
+
+Calls to functions involving w such as operator> and operator!= may involve instantiating templates
+to make calls succeed - Such instantiation occur during compilation
+
+Instantiating function templates with different template parameters leads to different functions
+being called then this is known as compile-time polymorphism
+
+
+RUNTIME vs COMPILE time polymorphism
+
+Compile time
+Determine which set of overloaded functions should be called (takes place during compilation)
+
+Runtime
+Dynamic binding of virtual function calls
+
+
+EXPLICIT vs IMPLICIT interface
+
+Explicit interface
+consists of function signatures i.e. function names, parameter types, return types
+
+Widget class public interface
+e.g.
+
+
+class Widget
+{
+public:
+  Widget();
+  virtual ~Widget();
+  virtual std::size_t size() const;
+  virtual void normalize();
+  void swap(Widget& other);
+};
+
+
+NOTE: also includes compiler generated copy constructor and copy assignment operator (Item5)
+
+
+Implicit interface
+Not based on function signatures, rather, it consists of valid expressions
+
+
+template<typename T>
+void doProcessing(T& w)
+{
+  if (w.size() > 10 && w != someNastyWidget)
+  {
+
+  ...
+
+
+Implicit interface of T (w's type) has these constraints:
+* It must offer a member function named size() that returns an integral value
+* It must support an operator != function that compares 2x objects of type T
+
+
+Implicit interfaces are simply made up of a set of valid expressions
+These expressions themselves may look complicated but the constraints they impose are generally straightforward
+
+e.g.
+if (w.size() > 10 && w != someNastyWidget) ...
+
+
+It's easy to identify the constraint on the expression as a whole:
+The conditionally part of an if statement must be a boolean expression thus must be compatible with bool
+
+This is part of the implicit interface the template doProcessing() imposes on its type parameter T
+The rest of the interface required is that calls to copy ctor, normalize() and swap() must be valid for objects of type T
+
+
+Implicit interfaces imposed on a template's parameters are just as real as explicit interfaces imposed on class objects:
+both are checked during compilation
+
+Just as you can't use an nobject in a way contradictory to the explicit interface its class offers
+(the code won't compile)
+
+You can't try to use an object in a template unless that object supports the implicit interface the template requires
+(the code won't compile)
+
+
+REMEMBER
+* Both classes and templates support interfaces and polymorphism
+
+* For classes, interfaces are explicit and centered on function signatures.
+  Polymorphism occurs at runtime through virtual functions
+
+* For template parameters, interfaces are implicit and based on valid expressions.
+  Polymorphism occurs during compilation through template instantiation and function overloading resolution

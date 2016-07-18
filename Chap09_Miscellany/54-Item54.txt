@@ -1,0 +1,84 @@
+54 Item54
+31-Mar-2014
+
+
+Item 54: Familiarize yourself with the standard library, including TR1
+
+
+C++0x defines the 200x version of C++
+
+What will be included in the new library will be specified in the document TR1
+Technical Report1
+
+
+Major parts of standard C++ library C++98
+- Standard Template Library (STL)
+- Iostreams
+- Support for internationalization
+- Support for numeric processing
+-A n exception hierarchy
+- C89's standard library
+
+
+TR1 specifies 14 new components (pieces of library functionality)
+
+std::	standard library
+tr1::	technical report1
+
+
+TR1 components
+
+Smart pointers
+Act like built-in pointers but they keep track of how many shared_ptrs point to an object
+Reference counting		
+e.g. tr1::shard_ptr	tr1::weak_ptr
+
+
+tr1::function
+Represent callable entity (function or function object) whose signature consistent with target signature
+
+void registerCallback(std::string func(int));	// param type if a function taking an int and return string
+void registerCallback(std::string(int));	// same as above; param name is omitted
+
+std::string(int) is a function signature
+
+
+tr1::bind
+Extend STL binders
+
+
+01. TR1 components with discrete standalone functionality
+- Hash tables
+- Regular expressions
+- Tuples
+- tr1::array
+- tr1::mem_fn
+- tr1::reference_wrapper
+- Random number generator
+- Mathematical special functions
+- C99 compatibility extensions
+
+
+02. TR1 components with sophisticated template programming techniques e.g. template metaprogramming (Item48)
+- Type traits
+- tr1::result_of
+
+
+If you'd like to use Boost TR1 like libraries as a stopgap until compilers ship with their own TR1 implementations
+then you may want to avail yourself of a namespace trick: tell compilers to treat references to str::tr1 as boost
+
+namespace std
+{
+	namespace tr1 = ::boost;	// namespace std::tr1 is an alias for namespace boost
+}
+
+
+REMEMBER
+* The primary standard C++ library functionality consists of the STL, iostreams, and locales
+  The C99 standard library is also included
+
+* TR1 adds support for smart pointers (e.g. tr1::shared_ptr), generalized function pointers (tr1::function),
+  hash-based containers, regular-expressions, and 10 other components
+
+* TR1 itself is only a specification.  To take advantage of TR1, you need an implementation.
+  One source for implementations of TR1 components is boost

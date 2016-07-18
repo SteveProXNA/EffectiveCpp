@@ -1,0 +1,37 @@
+#include <string>
+
+// Base class for all transactions.
+class Transation3
+{
+public:
+	explicit Transation3(const std::string& logInfo);
+	virtual ~Transation3() {}
+
+	// Now a non-virtual function.
+	void logTransaction(const std::string& logInfo) const
+	{
+	}
+};
+
+
+// Implementation of base class ctor.
+Transation3::Transation3(const std::string& logInfo)
+{
+	logTransaction(logInfo);
+}
+
+
+class BuyTransaction3 : public Transation3
+{
+public:
+	BuyTransaction3(int x, int y, int z) :
+		Transation3(createLogString(x, y, z))
+	{
+	}
+
+private:
+	static std::string createLogString(int x, int y, int z)
+	{
+		return "stevepro";
+	}
+};

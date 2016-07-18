@@ -1,0 +1,145 @@
+05 Item05
+09-Nov-2013
+
+
+Item 05: Know what functions C++ silently writes and calls
+
+
+If you don't declare them yourself, compilers will declare their own version of:
+copy constructor, copy assignment operator, destructor
+
+If you declare no constructors at all then compilers will declare default constructor
+All these functions will be both public and inline
+
+
+e.g. this
+class Empty();
+
+
+becomes
+class Empty
+{
+public:
+	Empty() {}
+	Empty(const Empty& rhs) {}
+	~Empty() {}
+	Empty& operator=(const Empty& rhs) {}
+};
+
+
+These functions only get generated if they are needed
+e.g.
+
+
+Empty e1;		// default constructor and destructor.
+Empty e2(e1);		// copy constructor.
+e2 = e1;		// copy assignment operator.
+
+
+Default constructor / destructor are place to put "behind the scenes" code:
+invocation of base class constructor / destructor + non-static data members
+
+NB: generated destructor is non-virtual unless inherits base class w/ virtual destructor
+ie. function's virtualness comes from base class
+
+
+Copy constructor and copy assignment operator, compiler-generated versions
+simply copy each non-static data member of source to target object
+
+e.g.
+NamedObject template
+
+
+template<typename T>
+class NamedObject
+{
+public:
+	NamedObject(const char* name, const T& value);
+	NamedObject(std::string& name, const T& value);
+
+private:
+	std::string nameValue;
+	T objectValue;
+};
+
+
+Because constructor is declared the compiler won't generate a default constructor
+Important: compiler won't override your decision to NOT have constructor w/ no arguments
+
+NamedObject does not declare copy constructor nor copy assignment operator
+So compiler will generate those functions for you
+
+
+COPY CONSTRUCTOR
+
+template<typename T>
+class NamedObject
+{
+public:
+	NamedObject(const char* name, const T& value);
+	NamedObject(std::string& name, const T& value);
+
+private:
+	std::string nameValue;
+	T objectValue;
+};
+
+
+NamedObject<int> no2(no1);		// calls copy constructor.
+
+
+string has copy constructor so no2.nameValue initialized w/ string copy constructor
+and no1.nameValue as argument
+
+
+NamedObject<int> T = int (built-in type) so
+no2.objectValue initialized by copying no1.objectValue
+
+
+COPY ASSIGNMENT OPERATOR
+Compiler-generated copy assignment operator work when result code is legal and makes sense
+If either test fails then compilers refuse to generate operator= for your class
+
+E.g.
+nameValue is reference to a string and objectValue is const T
+
+
+template<typename T>
+class NamedObject2
+{
+public:
+	// ctor no longer takes const name because nameValue is reference-to-non-const string
+	// The char* constructor is gone because we must have a string to refer to.
+	NamedObject2(std::string& name, const T& value);
+
+private:
+	std::string& nameValue;
+	const T objectValue;
+};
+
+
+NamedObject2<int> no1(name1, 2);
+NamedObject2<int> no2(name2, 2);
+
+//error C2582: 'operator =' function is unavailable in 'NamedObject2<T>'
+//no1 = no2;
+
+
+String is reference so once initialized then it cannot be assigned (refer) to a different object
+Also, it's not legal to modify const members so compilers don't know how to generate function
+
+
+Therefore C++ code refuses to compile
+If you want to support assignment in a class containing a reference member then
+you must define the copy assignment operator yourself
+
+Finally, compilers reject implicit copy assignment operators in derived classes
+that inherit from base classes declaring the copy assignment operator private
+
+After all, compiler-generated copy assignment operators for derived class
+are supposed to handle base class parts too but can't invoke member functions when private
+
+
+REMEMBER
+* Compilers may implicitly generate a class's default constructor,
+  copy constructor, copy assignment operator, and destructor

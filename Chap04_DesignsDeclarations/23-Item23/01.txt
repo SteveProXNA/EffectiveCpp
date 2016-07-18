@@ -1,0 +1,33 @@
+#pragma once
+
+class WebBrowser
+{
+public:
+	void clearCache() {}
+	void clearHistory() {}
+	void removeCookies() {}
+
+	void clearEveything()
+	{
+		clearCache();
+		clearHistory();
+		removeCookies();
+	}
+};
+
+void clearBrowser(WebBrowser& wb)
+{
+	wb.clearCache();
+	wb.clearHistory();
+	wb.removeCookies();
+}
+
+
+#pragma once
+
+#include "WebBrowser.h"
+
+int main()
+{
+	return 0;
+}

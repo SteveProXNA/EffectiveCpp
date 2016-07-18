@@ -1,0 +1,189 @@
+12 Item12
+10-Nov-2013
+
+
+Item 12: Copy all parts of an object 
+
+
+2x functions copy objects:
+copy constructor
+copy assignment operator
+
+
+These are called copying functions
+Compilers will generate copying functions, if needed, and copy ALL data of the object being copied
+
+
+If you choose to declare your own copying functions then compilers don't tell you if / when your
+implementations are wrong
+
+
+IMPORTANT
+If you declare copy constructor then compiler will NOT generate default constructor for you
+(you must declare one yourself)
+
+
+class Customer
+{
+public:
+  Customer(const Customer& rhs);
+  Customer& operator=(const Customer& rhs);
+
+private:
+  std::string name;
+};
+
+Customer::Customer(const Customer& rhs) :
+  name(rhs.name)                                 // copy rhs's data  
+{
+  logCall("Customer copy constructor");
+}
+
+Customer& Customer::operator=(const Customer& rhs)
+{
+  logCall("Customer copy assignment operator");
+
+  name = rhs.name;                               // copy rhs's data
+  return *this;                                  
+}
+
+
+All looks fine until add another data member
+
+
+class Date { ... };       // for dates in time
+
+class Customer
+{
+public:
+  // as before
+
+private:
+  std::string name;
+  Date lastTransaction;
+};
+
+
+Now is a partial copy: copy name but not lastTransaction
+But compilers will not emit a warning!
+
+
+Solution:
+If you add data member to class then you need to make sure that you update the copying functions too
+You'll need to update all the constructors) as well as any non-standard forms of operator= in the class
+
+If you forget then compilers will NOT remind you!
+
+
+This can happen through inheritance:
+
+Interesting thing I found is that derived class does NOT have to explicitly call base class ctor
+(this happens implicitly - which makes sense)
+
+i.e. the following 2x are identical
+PriorityCustomer() : Customer(), priority(1) {}
+PriorityCustomer() : priority(1) {}
+
+
+// a derived class
+class PriorityCustomer: public Customer
+{                  
+public:
+   PriorityCustomer(const PriorityCustomer& rhs);
+   PriorityCustomer& operator=(const PriorityCustomer& rhs);
+
+private:
+   int priority;
+};
+
+PriorityCustomer::PriorityCustomer(const PriorityCustomer& rhs) :
+  priority(rhs.priority)
+
+{
+  logCall("PriorityCustomer copy constructor");
+}
+
+PriorityCustomer& PriorityCustomer::operator=(const PriorityCustomer& rhs)
+{
+  logCall("PriorityCustomer copy assignment operator");
+  priority = rhs.priority;
+  return *this;
+}
+
+
+Looks ok but PriorityCustomer also contains copy of the data members it inherits from Customer
+And those data members aer not being copied at all!
+
+
+PriorityCustomer copy constructor specifies no arguments to be passed to base class constructor
+i.e. makes no mention of Customer on its member initialization list
+
+So Customer part of the PriorityCustomer object will be initialized with default values (default ctor)
+(Assuming it has one - if not then the code won't compile)
+
+i.e. ctor performs default initialization for name and lastTransation
+
+
+PriorityCustomer copy assignment operator makes no attempt to modify its base class data members
+so they'll remain unchanged
+
+
+IMPORTANT
+If you write copying functions for a derived class then you must take care to copy the base class parts too
+Those parts are typically private; you can't access them.  Derived copying fns must invoke base class fns
+
+
+PriorityCustomer::PriorityCustomer(const PriorityCustomer& rhs) :
+  Customer(rhs),                   // invoke base class copy ctor
+  priority(rhs.priority)
+{
+  logCall("PriorityCustomer copy constructor");
+}
+
+PriorityCustomer& PriorityCustomer::operator=(const PriorityCustomer& rhs)
+{
+  logCall("PriorityCustomer copy assignment operator");
+
+  Customer::operator=(rhs);           // assign base class parts
+  priority = rhs.priority;
+
+  return *this;
+}
+
+
+This is the meaning "copy ALL parts"
+When writing a copying function be sure to:
+
+1. copy all local data members
+2. invoke the appropriate copying functions in all base classes too
+
+
+In practice, 2x copying functions will have similar bodies;
+temptation to avoid code duplication by having one function call the other.  DON'T
+
+
+A.
+It makes no sense for copy assignment operator to call copy constructor:
+because you're trying to construct an object that exists
+
+B.
+It makes no sense for copy constructor to call copy assignment operator:
+A constructor initializes new objects but an assignment operator applies only to objects that have already
+been initialized.
+
+Performing an assignment on an object under construction means non-initialized object
+that makes sense only for an initialized object.  DON'T do this!
+
+
+Solution: instead, eliminate code duplication:
+Create third member function that both copy constructor and copy assignment operator call
+
+Such a function is private and often name init()
+Strategy is safe, proven way to eliminate code duplication in copy constructors and copy assignment operators
+
+
+REMEMBER
+* Copying functions should be sure to copy all of an object's data members and all of its base class parts
+
+* Don't try to implement one of the copying functions in terms of the other
+  Instead, put common functionality in a third function that both call

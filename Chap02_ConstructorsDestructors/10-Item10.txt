@@ -1,0 +1,75 @@
+10 Item10
+10-Nov-2013
+
+
+Item 10: Have assignment operators return a reference to *this 
+
+
+Assignments can be chained together:
+
+int x, y, z;
+x = y = z = 15;                        // chain of assignments
+
+
+Assignment is right associative
+So, above statement parsed like this:
+
+x = (y = (z = 15));
+
+
+i.e.
+15 assigned to z
+result of that assignment (the updated z) is assigned to y
+result of that assignment (the updated y) is assigned to x
+
+
+Implementation
+Assignment returns a reference to its left-hand argument
+And that's the convention that you should follow when you implement assignment operators for your classes
+
+
+class Widget
+{
+public:
+	// Return type is reference to the current class.
+	Widget& operator=(const Widget& rhs)
+	{
+		// Return the left-hand object
+		return *this;
+	}
+};
+
+
+Note: standard applies to ALL assignment operators (not just standard form)
+
+
+class Widget2
+{
+public:
+	// Standard copy assignment operators.
+	Widget2& operator=(const Widget2& rhs)
+	{
+		return *this;
+	}
+
+	// Convention applies to +=, -=, *=, etc.
+	Widget2& operator+=(const Widget2& rhs)
+	{
+		return *this;
+	}
+
+	// Applies even if operator's parameter is unconventional.
+	Widget2& operator=(int rhs)
+	{
+		return *this;
+	}
+};
+
+
+Important
+Code that DOESN'T follow convention will compile
+However, the convention is followed by all built-in types plus STL (string, vector, complex, tr1::shared_ptr)
+
+
+REMEMBER
+* Have assignment operators return a reference to *this

@@ -1,0 +1,48 @@
+#pragma once
+
+#include "Widget1.h"
+
+int main()
+{
+	WidgetImpl wi1(1, 2, 3);
+	WidgetImpl wi2(2, 4, 6);
+
+	Widget w1(&wi1);
+	Widget w2(&wi2);
+
+	w2 = w1;
+	return 0;
+}
+
+
+#pragma once
+
+#include <stdlib.h>
+
+class WidgetImpl
+{
+public:
+	WidgetImpl(int x, int y, int z) :
+	  a(x), b(y), c(z)
+	{
+	}
+
+private:
+	int a, b, c;
+};
+
+
+class Widget
+{
+public:
+	Widget(WidgetImpl* wi) : pImpl(wi) {}
+	Widget(const Widget& rhs);
+	Widget& operator=(const Widget& rhs)
+	{
+		*pImpl = *(rhs.pImpl);
+		return *this;
+	}
+
+private:
+	WidgetImpl* pImpl;
+};

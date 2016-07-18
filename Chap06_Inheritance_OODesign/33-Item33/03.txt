@@ -1,0 +1,42 @@
+class Base
+{
+public:
+	virtual void mf1() = 0;
+	virtual void mf1(int i) {}
+	virtual void mf2() {}
+
+	void mf3() {}
+	void mf3(double d) {}
+
+private:
+	int x;
+};
+
+class Derived : public Base
+{
+public:
+	// Make all things in Base named mf1 and mf3
+	// visible (and public) in Derived's scope
+	using Base::mf1;
+	using Base::mf3;
+
+	virtual void mf1() {}
+	void mf3() {}
+	void mf4();
+};
+
+
+#include "Base3.h"
+
+int main()
+{
+	Derived d;
+	const int x = 5;
+
+	d.mf1();		// Fine: calls Derived::mf1()
+	d.mf1(x);		// Fine: now calls Base::mf1()
+	d.mf2();		// Fine: calls Base::mf2()
+	d.mf3();		// Fine: calls Derived::mf3()
+	d.mf3(x);		// Fine: now calls Base::mf3()
+	return 0;
+}

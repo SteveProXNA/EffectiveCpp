@@ -1,0 +1,315 @@
+30 Item30
+10-Dec-2013
+
+
+Item 30: Understand the ins and outs of inlining.
+
+
+Inline functions
+They look like functions, act like functions, much better than macros (Item2)
+Can call them without incur the overhead of function call
+
+
+Idea behind an inline function is to replace each call of the function
+with its code body so this can increase the size of your object code
+
+On machines with limited memory, overzealous inlining can give rise to programs
+that are too big for the available space
+
+Even with virtual memory, inline-induced code bloat can lead to additional paging
+a reduced instruction cache hit rate and performance penalties that accompany this
+
+
+However, if inline function is VERY short then the code generated for the function
+body may be smaller than the code generated for the function call
+
+Here, inlining the function call may actually lead to smaller object code and
+higher instruction cache hit rate!
+
+
+IMPORTANT
+inline is a request to compilers not a command
+The request can be given implicitly or explicitly
+
+
+IMPLICIT
+Define a function inside a class definition
+
+class Person
+{
+public:
+	// an implicit  inline request
+	// age is defined in class definition
+	int age() const { return theAge; }
+
+private:
+	int theAge;
+};
+
+
+Such functions are usually member functions but Item46 explains friend functions
+can also be defined inside classes - when they are they are implicitly declared inline
+
+
+EXPLICIT
+The explicit way to declare an inline function is to precede its definition with
+the inline keyword
+
+e.g.
+this is how the standard max template (from <algorithm) is often implemented
+
+// an explicit inline request
+// std::max is preceded by "inline"
+template<typename T>
+inline const T& std::max(const T& a, const T& b)
+{
+	return a < b ? b : a; 
+}
+
+
+max is a template brings observation that both inline functions and templates are 
+typically defined in header files
+
+Conclusion: that function templates must be inline
+Invalid and potentially harmful
+
+
+Inline functions must typically be in header files because most build environments
+do inlining during compilation
+
+In order to replace a function call with the body of a function, compilers must
+know what the function looks like
+
+Some build environments can inline during linking e.g. managed environment .NET/CLI
+can actually inline at runtime
+
+These environments are the exception not the rule
+
+
+C++ inlining is mostly a compile-time activity
+
+
+TEMPLATES
+Templates are typically in header files because compilers need to know what a template
+looks like in order to instantiate it when it's used
+
+NB: some build environments perform template instantiation during linking
+however compile-time more common
+
+
+Template instantiation is independent of inlining: if template can benefit from
+inlining then declare template inline e.g. std::max implementation
+
+But if no reason to inline then avoid declaring template inline (implicit/explicit)
+Inlining has costs and don't want to incur them without forethought
+
+
+Also, inline is request compiler may ignore.  Most compilers refuse to inline
+functions deemed too complicated (e.g. contains loops or are recursive)
+
+Virtual "wait until runtime to figure out what function to call" fns can't be inlined
+inline means "before execution, replace the call site with the called function
+
+If compilers don't know which function will be called then you can hardly blame
+them for refusing to inline the function's body
+
+
+Whether a function is inlined depends on the build environment - primarily the compiler
+Most compilers have a diagnostic level results in warning (Item53) if fail to inline
+
+Sometimes compilers generate function body for an inline function even when they are
+perfectly willing to inline the function
+
+e.g.
+program takes address of an inline function
+compilers must typically generate an outlined function body for it
+
+How can they come up with a pointer to a function that doesn't exist?
+Coupled with fact that compilers don't perform inlining across call through function
+pointers, this means that calls to an inline function may or may not be inlined
+
+this depends on how the calls are made:
+
+
+// assume compilers are willing to inline calls to f()
+inline void f()
+{
+}
+
+
+// pf points to f
+void (*pf)() = f;
+
+
+// this call will be inlined because it's a "normal" call
+f();
+
+
+// this call probably won't because it's through a function pointer
+pf();
+
+
+MORE OUT-OF-LINE
+Sometimes compilers generate out-of-line copies of constructors / destructors
+so that they can get pointers to those functions for use during ctor / dtor of 
+objects in arrays
+
+In fact, constructors and destructors are often the worse candidates for inlining
+
+e.g.
+consider constructor for class Derived
+
+
+class Base
+{
+public:
+
+private:
+	std::string bm1, bm2;
+};
+
+
+class Derived : public Base
+{
+public:
+	// ctor is empty - or is it?
+	Derived() {}
+
+private:
+	std::string dm1, dm2, dm3;
+};
+
+
+Constructor looks excellent candidate for inlining since it contains no code
+But looks can be deceiving
+
+C++ makes various guarantees about things that happen when objects are
+created and destroyed
+
+new => dynamically created objects are automatically initialized by their ctor
+delete corresponding dtor are invoked
+
+
+Create an object: each base class and each data member in that object is constructed
+and the reverse process regarding destruction occurs when object is destroyed
+
+If an exception thrown during construction of an object then any parts of the object
+that have already been fully constructor are automatically destroyed
+
+
+C++ says what must happen but it doesn't say how
+That's up to compiler implementers but they don't happen by themselves
+
+There has to be code in your program to make those things happen and that code
+is written by compilers and inserted into your program during compilation - 
+has to go somewhere
+
+Sometimes in constructors and destructors so imagine implementations generating
+code equivalent to the following for the allegedly empty Derived constructor
+
+
+// conceptual implementation of "empty" Derived ctor
+Derived::Derived()
+{
+	// Initialize Base part
+	Base::Base();
+
+	// try to construct dm1
+	try
+	{	
+		dm1.std::string::string();
+	}
+	catch (...)
+	{
+		// if it throws then destroy base class part
+		// and propagate the exception
+		Base::~Base();
+		throw;
+	}
+
+	// try to construct dm2
+	try
+	{	
+		dm2.std::string::string();
+	}
+	catch (...)
+	{
+		// if it throws then destroy dm1 and base class part
+		// and propagate the exception
+		dm1.std::string::~string();
+		Base::~Base();
+		throw;
+	}
+
+	// try to construct dm3
+	try
+	{	
+		dm3.std::string::string();
+	}
+	catch (...)
+	{
+		// if it throws then destroy dm1, dm2 and base class part
+		// and propagate the exception
+		dm2.std::string::~string();
+		dm1.std::string::~string();
+		Base::~Base();
+		throw;
+	}
+}
+
+
+The above reflects the behavior that Derived's "empty" constructor must offer
+
+Derived's constructor must at least call constructors for all its data members
+and base class and those calls could affect its attractiveness for inlining
+
+Same applies to Base ctor: so if it's inlined then all the code inserted into it
+is also inserted into Derived ctor (via Derived call to Base constructor)
+
+and if string ctor is inlined then Derived ctor will gain 5x copies to that
+function's code: 1x for each string (2x in Base and 3x in Derived)
+
+Perhaps now clear why it's not a no-brain decision whether to inline Derived ctor
+Similiar considerations for Derived dtor which sees all objects are properly destroyed
+
+
+LIBRARY
+Library designers must evaluate impact of declaring functions inline because it's
+not possible to provide binary upgrades to the client visible library inline functions
+
+i.e.
+if f() is an inline function in a library then clients of the library compile the
+body of the function f() into their applications
+
+if library implementer decides to change f() then all clients using f() must recompile
+Undesirable but if f() is non-inline function then modification requires only relink
+
+That's less burden than recompiling and if the library containing the function is
+dynamically linked then change can be absorbed transparently to its clients
+
+
+DEBUGGING
+During development, most debuggers have trouble with inline functions - no surprise
+How do you set a breakpoint in a function that isn't there?
+
+although some build environments manage to support debugging of inlined functions
+many environments disable inlining for debug builds
+
+
+Logical strategy for determining which functions should be declared inline
+Initially don't inline anything
+Facilitate debugger during dev
+
+80-20 rule which states program spends 80% of its time executing 20% of the code
+Important rule because it reminds you to identify 20% of your code can inc performance
+
+You can inline and tweak your functions until the cows come home but it's a wasted
+effort unless you're focusing on the right functions!
+
+
+REMEMBER
+* Limit most inlining to small, frequently called functions
+  This facilitates debugging and binary upgrades, minimized code bloat and maximizes
+  the chance of greater program speed
+
+* Don't declare function templates inline just because they appear in header files

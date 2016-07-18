@@ -1,0 +1,68 @@
+class Shape
+{
+public:
+	enum ShapeColor { Red, Green, Blue };
+
+	// Non non-virtual calls virtual function
+	void draw(ShapeColor color = Red) const
+	{
+		doDraw(color);
+	}
+
+private:
+	// Private pure virtual function does actual work.
+	virtual void doDraw(ShapeColor color) const = 0;
+};
+
+
+class Rectangle : public Shape
+{
+private:
+	// Notice lack of default parameter value
+	virtual void doDraw(ShapeColor color) const
+	{
+	}
+};
+
+
+class Circle : public Shape
+{
+	// Don't redefine inherited default parameter value!
+	virtual void doDraw(ShapeColor color) const
+	{
+	}
+};
+
+
+#include "Shape2.h"
+
+int main()
+{
+	Shape* pr = new Rectangle;	// static type = Shape*		dynaminc type = Rectangle*
+	Shape* pc = new Circle;		// static type = Shape*		dynaminc type = Circle*
+
+
+	
+	// Calls Shape::draw(Shape::Blue);
+	// Calls Rectangle::doDraw(Shape::Blue);
+	pr->draw(Shape::Blue);
+
+	// Calls Shape::draw();
+	// Calls Rectangle::doDraw(Shape::Red);
+	pr->draw();
+
+
+	// Calls Shape::draw(Shape::Red);
+	// Calls Circle::draw(Shape::Red);
+	pc->draw(Shape::Red);
+
+	// Calls Shape::draw();
+	// Calls Circle::draw(Shape::Red);
+	pc->draw();
+
+
+	delete pc;
+	delete pr;
+
+	return 0;
+}

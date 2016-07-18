@@ -1,0 +1,146 @@
+26 Item26
+04-Dec-2013
+
+
+Item 26: Postpone variable definitions as long as possible. 
+
+
+When you define variable of type with constructor and destructor then you incur cost of construction when control
+reaches variable definition and incur const of destruction when variable goes out of scope
+
+There is cost associated with unused variables so avoid them whenever you can
+
+
+EXAMPLE
+std::string encryptPassword(const std::string& password)
+{
+	std::string encrypted;
+
+	if (password.length() < 8)
+	{
+		throw std::logic_error("Password too short");
+	}
+
+	return encrypted;
+}
+
+
+The object encrypted isn't completely unused in this function but it is unused if an exception is thrown
+i.e. pay cost for construction and destruction for encrypted even if encryptPassword() throws an exception
+
+
+Solution
+Postpone encrypted definition until you know you need it:
+
+std::string encryptPassword(const std::string& password)
+{
+	if (password.length() < 8)
+	{
+		throw std::logic_error("Password too short");
+	}
+
+	std::string encrypted;
+	// ...
+	return encrypted;
+}
+
+
+Code still not tight because encrypted is defined without any initialization arguments
+i.e. default constructor used and then often first thing you do is give it some value via assignment
+
+Item4 explains default constructing an object then assigning is less efficient that initializing with value
+Same applies here e.g. suppose hard part of function performed here:
+
+
+// encrypts "s" in place
+void encrypt(std::string& s);
+
+Then the encryptPassword could be implemented like this, although not the best way to do it:
+std::string encryptPassword(const std::string& password)
+{
+	if (password.length() < 8)
+	{
+		throw std::logic_error("Password too short");
+	}
+
+	std::string encrypted;
+	encrypted = password;
+
+	encrypt(encrypted);
+	return encrypted;
+}
+
+
+A preferable approach is to initialize with password thus skipping pointless and expensive default construction
+std::string encryptPassword(const std::string& password)
+{
+	if (password.length() < 8)
+	{
+		throw std::logic_error("Password too short");
+	}
+
+	std::string encrypted(password);
+	encrypt(encrypted);
+
+	return encrypted;
+}
+
+
+Not only postpone variable definition until right before you have to use the variable but
+postpone the definition until you have initialization arguments for it
+
+By doing so you avoid constructing and destructing unneeded objects and avoid unnecessary default construction
+Further you help document purpose of variables by initializing them in context in which their meaning is clear
+
+
+LOOPS
+If variable used only inside loop then is it better to define outside loop or make assignment in loop each iteration?
+Or is it better to define the variable inside the loop?
+
+which is better?
+
+01.
+// Define outside loop
+
+Widget w;
+for (int i = 0; i < n; ++i)
+{
+	w = some value dependent on i;
+}
+
+
+02.
+// Define inside loop
+
+for (int i = 0; i < n; ++i)
+{
+	Widget w(some value dependent on i);
+}
+
+
+ANSWER
+In terms of Widget operations, the costs of these 2x approaches are as follows:
+
+01.	1x constructor, 1x destructor, n assignments
+02.	n constructors, n destructors
+
+
+Where assignment consts less than constructor / destructor pair then 01. is generally more efficient
+Esp. when n gets large
+
+Otherwise 02. is probably better
+
+
+Plus 01. makes "w" visible in a larger scope than 02. which is contrary to program comprehensibility
+
+As a result, unless you know that assignment is less expensive that constructor / destructor pair AND
+you're dealing wih a performance-sensitive part of your code then you should default to using 02.
+
+i.e.
+SUMMARY
+default to 02. where "w" has smaller scope (in loop) unless this is performance-sensitive and n assignments
+cost less that n constructors + n destructors
+
+
+REMEMBER
+* Postpone variable definitions as long as possible.  It increases program clarity and improves program efficiency

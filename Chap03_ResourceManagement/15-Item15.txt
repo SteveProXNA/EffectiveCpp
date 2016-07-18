@@ -1,0 +1,151 @@
+15 Item15
+25-Nov-2013
+
+
+Item 15: Provide access to raw resources in resource-managing classes. 
+
+
+Many APIs refer to resources directly so you'll sometimes have to bypass resource-managing objects and deal with raw resources
+from time-to-time
+
+
+e.g.
+factory function
+std::tr1::shared_ptr<Investment> pInv(createInvestment());  // from Item 13
+
+
+
+suppose there is function
+int daysHeld(const Investment *pi);
+
+
+
+int days = daysHeld(pInv);                // error!
+
+
+
+code won't compile because daysHeld wants raw Investment* pointer but you're passing tr1::shared::ptr<Investment>
+You need a way to convert an object of the RAII class (tr1::shared_ptr) into raw resource it contains (Investment*)
+
+
+TWO WAYS
+Explicit
+Implicit
+
+
+Explicit
+std::auto_ptr and tr1::shared_ptr both offer a get() member function to perform an explicit conversion
+i.e. to return (a copy) of the raw pointer inside the smart pointer
+
+int days = daysHeld(pInv.get());
+
+
+Implicit
+virtually all smart pointer classes overload the pointer dereferencing operators 
+operator->
+operator*
+
+
+and allow implicit conversions to the underlying raw pointers
+
+std::tr1::shared_ptr<Investment> pi1(createInvestment()); 
+pi1->isTaxFree()
+
+std::auto_ptr<Investment> pi2(createInvestment());
+(*pi2).isTaxFree();
+
+
+Sometimes it is necessary to get at the raw resources inside an RAII object, some RAII class designers offer implicit conversion function
+
+
+// explicit function
+class Font
+{
+public:
+  FontHandle get() const { return f; }  // explicit conversion function
+};
+
+
+
+Unfortunately, this would require that clients call get() every time they want to communication with the API
+
+
+void changeFontSize(FontHandle f, int newSize);     // from the C API
+
+Font f(getFont());
+int newFontSize;
+
+changeFontSize(f.get(), newFontSize);               // explicitly convert Font to FontHandle
+
+
+This may be off-putting enough to avoid using the class!
+Alternative: offer an implicit conversion function
+
+
+class Font
+{
+public:
+  operator FontHandle() const { return f; }        // implicit conversion function
+
+};
+
+
+
+Now calling the C API easy
+Font f(getFont());
+int newFontSize;
+
+
+changeFontSize(f, newFontSize);     // implicitly convert Font to FontHandle
+
+
+The downside is that conversions increase the chance of errors:
+
+e.g.
+a client might accidentally create a FontHandle when a Font was intended
+
+
+Font f1(getFont());
+
+
+FontHandle f2 = f1;                 // oops! meant to copy a Font
+                                    // object, but instead implicitly
+                                    // converted f1 into its underlying
+                                    // FontHandle, then copied that
+
+
+Now when Font f1 is destroyed the font will be released and f2 will dangle
+
+
+
+DECISION explicit vs. implicit
+Depends of the specific task the RAII class is designed to perform and circumstances it is intended to be used
+
+
+Best design: (Item18)
+Make interfaces easy to use correctly and hard to use incorrectly
+
+
+Often, explicit conversion function like get() is preferred because it minimizes the chances of unintended type conversions
+Sometimes, the naturalness of use arising from implicit type conversions will tip the scales in that direction
+
+
+FINALLY
+Functions returning raw resource inside RAII class are contrary to encapsulation?  True... but:
+RAII class don't exist to encapsulate anytinng
+
+They exist to ensure that a particular action - resource release - takes place
+Encapsulation of the resource can be layered on top of this primary functionality but it's not necessary
+
+RAII classes combine true encapsulation of implementation with loose encapsulation of the underlying resource
+
+e.g.
+tr1::shared_ptr encapsulates all its reference-counting machinery but still offers easy access to raw pointer it contains
+Like most well-designed classes, it hides what clients don't need to see but makes available things clients needs access
+
+
+REMEMBER
+* API s often require access to raw resources, so each RAII class should offer a way to get the resource it manages
+
+* Access may be via explicit conversion or implicit conversion.  
+  In general, explicit conversion is safer but implicit conversion is more convenient for clients

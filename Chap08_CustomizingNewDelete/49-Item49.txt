@@ -1,0 +1,282 @@
+49 Item49
+27-Mar-2014
+
+
+Item 49: Understand the behavior of the new-handler
+
+
+When operator new can't satisfy a memory allocation then it throws an exception
+Before it throws an exception, it calls a client-specific error-handling function called a "new-handler"
+
+
+To specify the out-of-memory-handling function, clients call set_new_handler
+a standard library function declared in <new>
+
+
+namespace std
+{
+  typedef void (*new_handler)();
+  new_handler set_new_handler(new_handler p) throw();
+}
+
+
+
+new_handler is typedef for pointer to function that takes and returns nothing
+set_new_handler is a function that takes and returns a new_handler
+
+
+The throw() at the end of set_new_handler declaration is an exception specification
+It says that this function won't throw any exceptions
+
+
+Use set_new_handler like this:
+
+// function to call if operator new can't allocate enough memory
+void outOfMem()
+{
+  std::cerr << "Unable to satisfy request for memory\n";
+  std::abort();
+}
+
+
+int main()
+{
+  std::set_new_handler(outOfMem);
+  int *pBigDataArray = new int[100000000L];
+}
+
+
+If operator new is unable to allocate space for 100,000,000 integers then outOfMem function will be called
+the program will abort after issuing an error message
+
+
+When operator new is unable to fulfil a memory request then it calls the new-handler function repeatedly
+until it can find enough memory
+
+
+This is enough to conclude that a well-designed new-handler function must do one of the following:
+
+1.	make more memory available
+2.	Install a different new-handler
+3.	Deinstall the new handler
+4.	Throw an exception
+5.	Not return
+
+
+C++ has no support for class-specific new-handlers but it doesn't need any; you can implement this yourself
+Just have each class provide its own versions of set_new_handler and operator new
+
+
+Class set_new_handler allows clients to specify the new-handler for the class
+(exactly like the standard set_new_handler allows clients to specify the globbal new-handler)
+
+
+Class operator new ensures the class-specific new-handler is used in place of the global new handler
+when memory for class objects is allocated
+
+
+EXAMPLE
+Widget object handles memory allocation failures and keeps track of the function to call when
+operator new can't allocate enough memory: declare static member of type new_handler to point to new_handler function
+
+
+class Widget
+{
+public:
+  static std::new_handler set_new_handler(std::new_handler p) throw();
+  static void * operator new(std::size_t size) throw(std::bad_alloc);
+
+private:
+  static std::new_handler currentHandler;
+};
+
+
+Static class members must be defined outside the class definition (unless they're const and integral Item2)
+
+std::new_handler Widget::currentHandler = 0;
+
+
+The set_new_handler function in Widget will save whatever pointer is passed to it
+and will return whatever pointer had been saved prior to the call
+
+std::new_handler Widget::set_new_handler(std::new_handler p) throw()
+{
+  std::new_handler oldHandler = currentHandler;
+  currentHandler = p;
+  return oldHandler;
+}
+
+
+Widget operator new will do the following:
+
+1.
+Call standard set_new_handler with Widget error-handling function
+This installed Widget new-handler as the global new-handler
+
+
+2.
+Call global operator new to perform the actual memory allocation
+
+If allocation fails then global operator new invokes Widget new-handler function
+because that function was just installed as the global new-handler
+
+if global operator new unable to allocate the memory then it throws bad_alloc exception
+
+Widget operator new must restore the original global new-handler then propagate the exception
+Widget treats the global new-handler as resource (Item13) using resource-managing objects to prevent leaks
+
+
+3.
+If global operator new was able to allocate enough memory for Widget object then Widget operator new
+returns a pointer to the allocated memory
+
+Destructor for object managing global new-handler automatically restores global new-handler to
+what it was prior to call to Widget operator new
+
+
+RESOURCE Handling class
+(fundamental RAII operation of acquiring resource during construction and releasing during destruction)
+
+
+class NewHandlerHolder
+{
+public:
+  explicit NewHandlerHolder(std::new_handler nh) : handler(nh) {}                                   
+  ~NewHandlerHolder()                               
+  {
+    std::set_new_handler(handler);
+  }
+
+private:
+  std::new_handler handler;                         
+
+  NewHandlerHolder(const NewHandlerHolder&);        
+  NewHandlerHolder& operator=(const NewHandlerHolder&);
+};
+
+
+
+void * Widget::operator new(std::size_t size) throw(std::bad_alloc)
+{
+  NewHandlerHolder h(std::set_new_handler(currentHandler));     
+  return ::operator new(size);                  
+}    
+
+
+void outOfMem();
+
+Widget::set_new_handler(outOfMem);
+Widget *pw1 = new Widget;          
+
+std::string *ps = new std::string; 
+
+Widget::set_new_handler(0);        
+Widget *pw2 = new Widget; 
+
+
+
+REUSE
+In order to get reuse, create a base class that designed to allow derived classes inherit single specific capability
+Ability to set class-specific new-handler
+
+
+Base class lets derived classes inherit the set_new_handler and operator new functions they all need
+while template part of the design ensures that each inheriting class gets a different currentHandler data member
+
+
+template<typename T>              
+class NewHandlerSupport
+{          
+public:                           
+  static std::new_handler set_new_handler(std::new_handler p) throw();
+  static void * operator new(std::size_t size) throw(std::bad_alloc);
+
+private:
+  static std::new_handler currentHandler;
+};
+
+
+template<typename T>
+std::new_handler NewHandlerSupport<T>::currentHandler = 0;
+
+
+template<typename T>
+std::new_handler NewHandlerSupport<T>::set_new_handler(std::new_handler p) throw()
+{
+ std::new_handler oldHandler = currentHandler;
+ currentHandler = p;
+ return oldHandler;
+}
+
+
+template<typename T>
+void* NewHandlerSupport<T>::operator new(std::size_t size) throw(std::bad_alloc)
+{
+  NewHandlerHolder h(std::set_new_handler(currentHandler));
+  return ::operator new(size);
+}
+
+
+
+Class template adds set_new_handler support to Widget is easy:
+Just inherit from NewHandlerSupport<Widget>
+
+
+class Widget: public NewHandlerSupport<Widget>
+{
+};
+ 
+
+Widget inherits from templatized base class that takes Widget as type parameter
+This is called CRTP Curiously Recurring Template Pattern
+
+Templates like NewHnadlerSupport make it easy to add class-specific new-handler to any class that wants one
+
+
+
+NULL vs. bad_alloc and NOTHROW
+Until 1993, C++ required that operator new return NULL when it was unable to allocate the requested memory
+operator new is now specified to throw bad_alloc exception but a lot of C++ was written before this
+
+C++ standardization committee didn't want to abandon test-for-null code base so they provided alternative
+form of operator new that offer the traditional failure-yields-null behavior
+
+These forms are called "nothrow" forms because they employ nothrow objects (defined in <new> header)
+at the point where new is used:
+
+
+class Widget { ... };
+
+Widget *pw1 = new Widget;                 
+if (pw1 == 0) ...                         
+
+Widget *pw2 =new (std::nothrow) Widget;   
+if (pw2 == 0) ... 
+
+
+NOTHROW
+Nothrow new offers less compelling guarantee about exceptions:
+new (std::nothrow) Widget causes 2x things to happen
+
+
+nothrow version of operator new called to allocate enough memory for Widget object
+If allocation fails then operator new returns the null pointer
+If succeeds then Widget constructor is called thus all bets are off - Widget ctor can do what it likes
+It might new up some memory and not constrained to use nothrow new
+However operator new call in "new (std::nothrow) Widget" won't throw then Widget constructor might
+If it does then exception will be propagated
+
+
+Conclusion
+Using nothrow new guarantees only that operator new won't throw
+NOT that "new (std::nothrow) Widget will never yield an exception
+
+In all likelihood, you will never have a need for nothrow new
+Important to understand behavior of new-handler because it's used in both forms
+
+
+REMEMBER
+* set_new_handler allows you to specify a function to be called when memory allocation requests cannot be satisfied
+
+* Nothrow new is of limited utility because it applies only to memory allocation;
+  subsequent constructor calls may still throw exceptions

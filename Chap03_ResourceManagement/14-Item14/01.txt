@@ -1,0 +1,48 @@
+class Mutex
+{
+};
+
+// Lock mutex pointed to by pm
+void lock(Mutex* pm)
+{
+}
+
+// Unlock the mutex
+void unlock(Mutex* pm)
+{
+}
+
+class Lock
+{
+public:
+	explicit Lock(Mutex* pm) : mutexPtr(pm)
+	{
+		lock(mutexPtr);
+	}
+
+	~Lock()
+	{
+		unlock(mutexPtr);
+	}
+
+private:
+	Mutex* mutexPtr;
+};
+
+
+#pragma once
+#include "Lock.h"
+
+int main()
+{
+	// Define the mutex you need to use.
+	Mutex m;
+
+	// Create block to define critical section.
+	Lock m1(&m);
+
+	Lock m2(m1);
+
+	// Automatically unlock mutex end-of-block.
+	return 0;
+}

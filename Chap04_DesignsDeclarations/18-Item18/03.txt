@@ -1,0 +1,20 @@
+#pragma once
+
+#include <memory>
+#include "Investment.h"
+
+void getRidOfInvestment()
+{
+}
+
+std::tr1::shared_ptr<Investment> createInvestment()
+{
+	std::tr1::shared_ptr<Investment> retVal(static_cast<Investment*>(0), getRidOfInvestment);
+	return retVal;
+}
+
+int main()
+{
+	std::tr1::shared_ptr<Investment> pInv = createInvestment();
+	return 0;
+}

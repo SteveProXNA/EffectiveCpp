@@ -1,0 +1,124 @@
+19 Item19
+28-Nov-2013
+
+
+Item 19: Treat class design as type design
+
+
+Define a new class defines a new type.  Much time spent as C++ developer augmenting your type system
+Not just a class designer but also a type designer
+
+Overloading functions and operators, controlling memory allocation and deallocation,
+defining object initialization and finalization - all in your hands
+
+Therefore, approach class design with same care as language designers design language built-in types
+
+
+Good types have natural syntax, intuitive semantics, and one or more efficient implementations
+Poorly planned class definition can make it impossible to achieve any of these goals
+
+Even performance characteristics of class member function may be affected by how they are declared
+
+
+Every class requires you confront the following questions, the answers lead to constraints on your design:
+
+
+01.
+How should objects of your new type be created and destroyed?
+Influences class constructors and destructor plus memory allocation and deallocation functions
+
+operator new
+operator new[]
+operator delete
+operator delete[]
+
+Chp08 - if you write them
+
+
+02.
+How should object initialization differ from object assignment?
+Determines behavior and differences between (copy) constructors and assignment operators
+Do not confuse initialization with assignment; they are different function calls (Item4)
+
+
+03.
+What does it mean for objects of your new type to be passed by value?
+Remember copy constructor defines how pass-by-value is implemented for a type
+
+
+04.
+What are the restrictions on legal values for your new type?
+Usually only some combinations of values for class data members are valid
+Those combinations determine invariants class will have to maintain
+
+Invariants determine error checking you have to do inside member functions, esp:
+constructors, assignment operators, and "setter" functions
+
+May also affect the exceptions your functions throw and your functions' exception specifications
+
+
+05
+Does your new type fit into an inheritance graph?
+If you inherit from existing classes then you are constrained by design of those classes;
+particularly whether functions are virtual or non-virtual (Item34 and Item36)
+
+If you wish other classes to inherit from your class then that affects whether functions
+you declare are virtual (or not), esp: destructor (Item7)
+
+
+06.
+What kind of type conversions are allowed for your new type? 
+Should there be conversions between your type and other types?
+
+If you wish to allow T1 objects to be implicitly converted into T2 objects then
+you want to write either a type conversion function in T1 (operator T2) or non-explicit constructor in T2
+
+If you wish to allow explicit conversions only then you want to write functions to perform the conversions
+but avoid making them type conversion operators or non-explicit constructors that can be called w/ 1x arg
+
+Item15: example of implicit and explicit conversion functions
+
+
+07.
+What operators and functions make sense for the new type?
+Answer determines which functions you declare for your class; some member functions but others not
+(Item23, 24, 26)
+
+
+08.
+What standard functions should be disallowed? 
+Those are the ones you need to declare private (Item6)
+
+
+09.
+Who should have access to the members of your new type?
+Helps determine which members are public, protected, private
+Helps determine which classes and/or functions should be friends plus nest one class inside another
+
+
+10.
+What is the "undeclared interface" of your new type?
+What guarantees offered with respect to performance, exception safety (Item29)
+and resource usage (locks and dynamic memory?)
+
+Guarantees you offer in these areas will impose constraints on your class implementation
+
+
+11.
+How general is your new type?
+Maybe you are defining a family of types; if so, don't want new class but new class template
+
+
+12.
+Is a new type really what you need?
+If defining a new derived class only to add functionality to an existing class then perhaps
+you better off simply defining one or more non-member functions or templates
+
+
+SUMMARY
+Done well, user-defined classes in C++ yield types at least as good as built-in types
+This makes all the effort worthwhile
+
+
+REMEMBER
+* Class design is type design.  Before defining a new type, be sure to consider all issues discussed here

@@ -1,0 +1,179 @@
+28 Item28
+06-Dec-2013
+
+
+Item 28: Avoid returning "handles" to object internals.
+
+
+EXAMPLE
+Application with Rectangle objects and each represented by upper left and lower left corner
+
+// class for representing points
+class Point
+{
+public:
+	Point(int xx, int yy) : x(xx), y(yy) {}
+	void setX(int newX) { x = newX; }
+	void setY(int newY) { y = newY; }
+
+private:
+	int x, y;
+};
+
+// Point data for a Rectangle
+struct RectData
+{
+	Point ulhc;	// upper left hand corner
+	Point lrhc;	// lower rght hand corner
+};
+
+class Rectangle
+{
+private:
+	std::tr1::shared_ptr<RectData> pData;
+};
+
+
+Point is user-defined type so mindful of Item20 observation:
+passing user-defined type by reference typically more efficient than passing them by value
+
+expose functions return references to the underlying Point objects
+class Rectangle
+{
+public:
+	Point& upperLeft() const { return pData->ulhc; }
+	Point& lowerRight() const { return pData->lrhc; }
+
+private:
+	std::tr1::shared_ptr<RectData> pData;
+};
+
+
+Design will compile but it is wrong!
+
+
+Self-contradictory: upperLeft and lowerRight are declared to be const member functions
+because they are designed only to offer clients a way to clear what the Rectangle points are
+(not let clients modify the Rectangle => Item3)
+
+Both functions return references to private internal data
+references that callers can use to modify the internal data!
+
+e.g.
+Point coord1(0, 0);
+Point coord2(100, 100);
+
+// rec is a "const" rectangle from (0,0) to (100,100)
+const Rectangle rec(coord1, coord2);
+
+// now rect goes from (50,0) to (100,100) - wtf?!?
+rec.upperLeft().setX(50);
+
+
+Here upperLeft() is able to use returned reference to one of rec internal Point data member to modify that member
+But rec is supposed to be const!
+
+
+LESSONS
+	
+01.
+First, a data member is only as encapsulated as the most accessible function returning a reference to it
+
+Here ulhc and lrhc are declared private but they're effectively public because upperLeft() and lowerRight()
+return references to them
+
+
+02.
+If a const member function returns a reference to data associated with an object that is stored outside the object
+itself them the caller of the function can modify that data (limitations of bitwise const - Item3)
+
+
+Everything done involved member functions returning references but pointers, iterators etc have the same problems
+Reference, pointers, iterators are all handles (ways to get at other objects)
+
+Therefore returning a handle to an object internals always runs the risk of compromising an object's encapsulation
+As we've seen, it can also lead to const member functions that allow an object's state to be modified
+
+
+INTERNALS
+Object internals => its data members but also member functions not accessible to the general public
+(protected or private are part of object's internals too)
+
+Important: not to return handles to them
+You should NEVER have a member function return a pointer to less accessible member function
+If you do then the effective access level will be that of more accessible function
+
+Why?  Because clients will be able to get a pointer to less accessible functions then call func thru pointer
+
+
+SOLUTION
+
+class Rectangle
+{
+public:
+	...
+
+	const Point& upperLeft() const { return pData->ulhc; }
+	const Point& lowerRight() const { return pData->lrhc; }
+
+	...
+};
+
+
+Now clients can read the Points defining the rectangle but that cannot write them
+upperLeft() and lowerRight() as const is no longer a lie because clients can no longer modify state of the object
+
+Read only access is being granted by these functions; write access is still prohibited
+
+
+DANGLING POINTERS
+upperLeft() and lowerRight() still return handles to object's internals, can be problematic => dangling pointers
+
+Dangling pointers are handles that refer to parts of objects that don't exist any longer
+Most common source of such disappearing objects are function return values
+
+e.g.
+consider function that returns the bounding box for GUI object in the form of a rectangle:
+
+
+class GuiObject {};
+
+// make pgo point to some GUI object
+GuiObject* pgo
+
+// get ptr to the upper left point of its bounding box
+const Point* pUpperLeft = &(boundingBox(*pgo)).upperLeft();
+
+
+Here the call to boundingBox() returns new temporary Rectangle object; doesn't have a name so call it "temp"
+upperLeft() then called on temp and that call will return reference to internal part of "temp" i.e. Point object
+
+End of statement, boundingBox return value - temp - will be destroyed
+that indirectly lead to the destruction of temp Point objects
+
+That, in turn, will leave pUpperLeft pointing to an object that no longer exists;
+pUpperLeft will dangle by the end of the statement that created it!
+
+
+DANGEROUS
+This is why any function that returns a handle to an internal part of the object is dangerous
+
+Doesn't matter if handle is reference, pointer, iterator, qualified with const or not
+Doesn't matter if member function returning the handle is const or not
+
+All that matters is that a handle is being returned:
+you then run the risk that the handle returned will outlive the object it refers to
+
+
+Doesn't mean you should never have member function return a handle:
+e.g. operator[] allows to pluck individual elements out of strings and vectors
+
+these operator[] work by returning references to the data in the containers (Item3)
+data that is destroyed when the containers themselves are
+
+Still, such functions are the exception, not the rule
+
+
+REMEMBER
+* Avoid returning handles (references, pointers or iterators) to object internals
+* It increases encapsulation, helps const member functions act const, and minimizes the creation of dangling handles

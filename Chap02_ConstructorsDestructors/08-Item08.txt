@@ -1,0 +1,146 @@
+08 Item08
+09-Nov-2013
+
+
+Item 08: Prevent exceptions from leaving destructors 
+
+
+C++ doesn't prohibit destructors from emitting exceptions
+But it certainly discourages the practice
+
+
+Widget example
+class Widget
+{
+public:
+	// Assume this might emit an exception.
+	~Widget() {}
+};
+
+void doSomething()
+{
+	std::vector<Widget> v;
+	//...
+
+	// v is automatically destroyed here.
+}
+
+
+if v has 10x Widgets and destruction of first one an exception is thrown
+The other 9x Widgets still need to be destroyed (otherwise resources they hold would be leaked)
+
+If destruction of second one an exception is thrown then either the program terminates
+(or undefined behavior)
+
+
+Premature program termination or undefined behavior can result from destructors emitting exceptions
+C++ does NOT like destructors that emit exceptions!
+
+
+What to do if destructor needs to perform an operation that may fail by throwing an exception?
+
+e.g.
+// Clients create DB Connection.
+DBConn db(DBConnection::create());
+
+// End of block, the DBConn object is destroyed
+// Automatically call close on DBConnection obj
+
+
+// Resource managing class for DBConnection
+// Call close() on behalf of clients in dtor.
+class DBConn
+{
+public:
+	DBConn(DBConnection database) :
+		db(database)
+	{
+	}
+
+	~DBConn()
+	{
+		db.close();
+	}
+
+private:
+	DBConnection db;
+};
+
+
+2x primary ways to avoid destructor to propagate exception i.e. allow exception to leave destructor:
+
+
+01.
+Terminate the program:
+If db.close() throws an exception then call abort()
+Call abort may forestall undefined behavior
+
+~DBConn()
+{
+	try
+	{
+		db.close();
+	}
+	catch (...)
+	{
+		// make log entry.
+		std::abort();
+	}
+}
+
+
+02.
+Swallow the exception
+In general this is a BAD idea because you suppress important info - that something failed!
+But sometimes still preferable to premature program termination or undefined behavior
+
+~DBConn()
+{
+	try
+	{
+		db.close();
+	}
+	catch (...)
+	{
+		// make log entry.
+	}
+}
+
+
+Neither "solution" is appealing because the program has no way to react to the condition
+that something failed and led to db.close() throwing an exception in the first place
+
+
+BETTER strategy
+Design DBconn interface so that clients have opportunity to react to problems that may arise
+
+e.g.
+DBconn offer public close() function thus giving clients a chance to handled exceptions from operation
+It also keeps track if DB closed to prevent connection resource leaking; if not then close in destructor
+
+If close() fails in DBConnection dtor then back to terminate or swallow options
+
+
+
+If an operation may fail by throwing an exception and there may be a need to handle that exception
+then the exception has to come from some non-destructor function
+
+That's because destructors that emit exceptions are dangerous:
+run the risk of premature termination or undefined behavior
+
+
+Here, telling clients to close themselves doesn't impose burden on them;
+it gives them opportunity to deal with errors they'd otherwise have no chance to react to
+
+If they don't and rely on destructor to close and close DOES throw exception then
+clients are in no position to complain if DBConn swallows exception or terminates program
+
+After all, they had first crack at dealing with the problem and they chose not to use it
+
+
+REMEMBER
+* Destructors should never emit exceptions.  If functions called in a destructor may throw,
+  the destructor should catch any exceptions, then swallow them or terminate the program
+
+* If class clients need to be able to react to exceptions thrown during an operation, the class should
+  provide a regular (i.e. non-destructor) function that performs the operation

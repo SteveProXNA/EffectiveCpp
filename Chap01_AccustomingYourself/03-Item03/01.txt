@@ -1,0 +1,22 @@
+05/11/2013
+
+char greeting[] = "Hello";
+char stevepro[] = "stevepro";
+
+char* p1 = greeting;
+//const char* p2 = greeting;		// DATA
+//char const* p2 = greeting;	// same
+char const *p2 = greeting;	// same
+
+char* const p3 = greeting;	// pointer
+const char* const p4 = greeting;
+
+p1[0] = '1';
+//p2[0] = '2';		// error C3892: 'p2' : you cannot assign to a variable that is const
+p3[0] = '3';
+//p4[0] = '4';		// error C3892: 'p4' : you cannot assign to a variable that is const
+
+p1 = stevepro;
+p2 = stevepro;
+//p3 = stevepro;	// error C3892: 'p3' : you cannot assign to a variable that is const
+//p4 = stevepro;		// error C3892: 'p4' : you cannot assign to a variable that is const

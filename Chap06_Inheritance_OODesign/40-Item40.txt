@@ -1,0 +1,303 @@
+40 Item40
+20-Dec-2013
+
+
+Item 40: Use multiple inheritance judiciously 
+
+
+Goal: understand both perspectives on multiple inheritance
+
+01.	if single inheritance is good then multiple inheritance is better
+02.	as single inheritance is good butt multiple inheritance isn't worth the trouble
+
+
+Multiple inheritance becomes possible to inherit the same name
+(e.g. function, typedef, etc.) from more than one base class
+
+Leads to ambiguity, e.g.
+
+
+class BorrowableItem
+{             	
+public:				   // class definition is unimportant
+  void checkOut();                 // check the item out from the library
+  ...
+};
+
+
+class ElectronicGadget
+{
+private:
+  bool checkOut() const;           // perform self-test, return whether
+  ...                              // test succeeds
+};
+
+
+class MP3Player:                   // note MI here
+  public BorrowableItem,           // (some libraries loan MP3 players)
+  public ElectronicGadget
+  {
+    ...				   // class definition is unimportant
+  };                           
+
+
+MP3Player mp;
+mp.checkOut();                     // ambiguous! which checkOut?
+
+
+checkout() is ambiguous even though only one of the two functions is publicly accessible
+That's in accord with the C++ rules for resolving calls to overloaded functions: 
+
+C++ first identifies the functions that's the best match for the call;
+it only checks accessibility after finding the best-match function
+
+In this case both checkOut() are equally good matches so there's no best match
+The accessibility of ElectronicGadget::checkOut() is never examined
+
+
+Resolve the ambiguity: specify which base class function to call:
+mp.BorrowableItem::checkOut();              // ah, that checkOut...
+
+
+If you try ElectronicGadget::checkOut() then you will get an error trying to call private member function
+
+
+Multiple inheritance means inheriting from more than one base class
+But it's not uncommon for MI to be found in hierarchies in higher level base classes
+
+
+This can lead to the "deadly MI diamond"
+
+class File
+{
+  ...
+};
+
+
+class InputFile : public File
+{
+  ...
+};
+
+
+class OutputFile : public File
+{
+  ...
+};
+
+class IOFile : public InputFile, public OutputFile
+{
+  ...
+};
+
+
+DIAGRAM
+
+
+C++ standard library contains MI hierarch just like this one, except the classes are class templates
+and the names are basic_ios, basic_istream, basic_ostream, basic_iostream instead of File... IOFile
+
+From viewpoint of correct behavior, MI public inheritance should always be virtual
+However virtual inheritance has costs
+
+
+Responsibility for initializing virtual base is borne by the most derived class in the hierarchy
+Implications
+
+01.
+classes derived from virtual bases that require initialization must be aware of their virtual bases (no matter the distant)
+
+02.
+when a derived class is added to the hierarchy then it must assume initialization responsibilities for its virtual bases
+
+
+VIRTUAL BASE classes rule:
+Don't use virtual base unless you need to
+By default, use non-virtual inheritance
+
+If you must use virtual base classes then try to avoid putting data in them
+That way you won't have to worry about oddities in initialization (and assignment) rules for such classes
+
+NOTE:
+virtual base classes in C++ are similar to interfaces in Java and C#
+
+
+Item31 use following C++ interface class for modelling persons
+
+
+class IPerson
+{
+public:
+  virtual ~IPerson();
+
+  virtual std::string name() const = 0;
+  virtual std::string birthDate() const = 0;
+};
+
+
+IPerson clients must program in terms of Person pointers and references because abstract base classes cannot be instantiated
+To create objects manipulated as IPerson objects, clients of IPerson use factory functions (Item31) to instantiate concrete classes
+derived from IPerson:
+
+
+// factory function to create a Person object from a unique database ID;
+// see Item 18 for why the return type isn't a raw pointer
+std::tr1::shared_ptr<IPerson> makePerson(DatabaseID personIdentifier);
+
+
+// function to get a database ID from the user
+DatabaseID askUserForDatabaseID();
+
+
+DatabaseID id(askUserForDatabaseID());
+
+
+std::tr1::shared_ptr<IPerson> pp(makePerson(id));    // create an object
+                                                     // supporting the
+                                                     // IPerson interface
+
+...                                                  // manipulate *pp via
+                                                     // IPerson's member
+                                                     // functions
+
+
+Now to make makePerson() create concrete derived classes from IPerson that makePerson() can instantiate
+
+
+Class CPerson is concrete class but must provide implementations for the pure virtual functions
+it inherits from IPerson
+
+Could write from scratch but better to take advantage of existing components that do most of the work
+Suppose there is an old database specific class: PersonInfo
+
+
+class PersonInfo
+{
+public:
+  explicit PersonInfo(DatabaseID pid);
+  virtual ~PersonInfo();
+
+  virtual const char * theName() const;
+  virtual const char * theBirthDate() const;
+  ...
+
+private:
+  virtual const char * valueDelimOpen() const;      // see
+  virtual const char * valueDelimClose() const;     // below
+  ...
+};
+
+
+Note: legacy class due to const char*
+Also PersonInfo designed to facility printing in different formats e.g. "[" and "]"
+
+
+const char * PersonInfo::valueDelimOpen() const
+{
+  return "[";                       // default opening delimiter
+}
+
+
+const char * PersonInfo::valueDelimClose() const
+{
+  return "]";                       // default closing delimiter
+}
+
+
+const char * PersonInfo::theName() const
+{
+  // reserve buffer for return value; because this is
+  // static, it's automatically initialized to all zeros
+  static char value[Max_Formatted_Field_Value_Length];
+
+
+  // write opening delimiter
+  std::strcpy(value, valueDelimOpen());
+
+  append to the string in value this object's   name field (being careful
+  to avoid buffer overruns!)
+
+  // write closing delimiter
+  std::strcat(value, valueDelimClose());
+
+  return value;
+}
+
+
+Relationship between CPerson and PersonInfo is that PersonInfo happens to have some functions you'd like CPerson to implement
+Their relationship is thus "is-implemented-in-terms-of" which can be represented in 2x ways: composition and via private inheritance
+
+
+Composition is the preferred approach but inheritance is necessary if virtual functions are to be redefined
+In this case, CPerson needs to redefine valueDelimOpen() + Close() so simple composition won't do
+
+Most straightforward solution is to have CPerson privately inherit from PersonInfo (Item39) although with a bit more work,
+CPerson could also use a combination of composition and inheritance to effectively redefine PersonInfo virtual
+
+But CPerson must also implement IPerson interface and that calls public inheritance
+This leads to reasonable application of multiple inheritance: combine public inheritance with private inheritance of impl.
+
+
+class IPerson {                            // this class specifies the
+public:                                    // interface to be implemented
+  virtual ~IPerson();
+
+  virtual std::string name() const = 0;
+  virtual std::string birthDate() const = 0;
+};
+
+
+class DatabaseID { ... };                  // used below; details are
+                                           // unimportant
+
+
+class PersonInfo {                         // this class has functions
+public:                                    // useful in implementing
+  explicit PersonInfo(DatabaseID pid);     // the IPerson interface
+  virtual ~PersonInfo();
+
+  virtual const char * theName() const;
+  virtual const char * theBirthDate() const;
+
+  virtual const char * valueDelimOpen() const;
+  virtual const char * valueDelimClose() const;
+  ...
+};
+
+
+class CPerson: public IPerson, private PersonInfo {     // note use of MI
+public:
+  explicit CPerson(    DatabaseID pid): PersonInfo(pid) {}
+
+  virtual std::string name() const                      // implementations
+  { return PersonInfo::theName(); }                     // of the required
+                                                        // IPerson member
+  virtual std::string birthDate() const                 // functions
+  { return PersonInfo::theBirthDate(); }
+
+private:                                                // redefinitions of
+  const char * valueDelimOpen() const { return ""; }    // inherited virtual
+  const char * valueDelimClose() const { return ""; }   // delimiter
+};                                                      // functions
+
+
+Example demonstrates that MI can be useful and comprehensible
+
+
+SUMMARY
+Compared to single inheritance, multiple inheritance is more complicated to use and more complicated to understand
+
+Single inheritance is preferable to MI but if MI is clearer and can get the job done then don't be afraid to use it - 
+just use multiple inheritance judiciously 
+
+
+REMEMBER
+* Multiple inheritance is more complex than single inheritance
+  It can lead to new ambiguity issues and to the need for virtual inheritance
+
+* Virtual inheritance imposes costs in size, speed and complexity of initialization and assignment
+  It's most practical when virtual base classes have no data
+
+* Multiple inheritance does have legitimate uses
+  One scenario involves combining public inheritance from an Interface class
+  with private inheritance from a class that helps with implementation

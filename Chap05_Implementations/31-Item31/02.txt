@@ -1,0 +1,91 @@
+#include <string>
+#include <memory>
+
+class PersonImpl2;
+class Date;
+class Address;
+
+class Person2
+{
+public:
+	Person2();
+	Person2(const std::string& name, const Date& birthday, const Address& addr);
+
+	std::string name() const;
+	std::string birthDate() const;
+	std::string address() const;
+
+private:
+	// ptr to implementation (Item13)
+	std::tr1::shared_ptr<PersonImpl2> pImpl;
+};
+
+
+#include "Person2.h"
+#include "PersonImpl2.h"
+
+Person2::Person2() {}
+
+Person2::Person2(const std::string& name, const Date& birthday, const Address& addr) :
+	pImpl(new PersonImpl2(name, birthday, addr))
+{
+}
+
+std::string Person2::name() const
+{
+	return pImpl->name();
+}
+std::string Person2::birthDate() const
+{
+	return pImpl->birthDate();
+}
+std::string Person2::address() const
+{
+	return pImpl->address();
+}
+
+
+#include <string>
+#include "Address.h"
+#include "Date.h"
+
+class PersonImpl2
+{
+public:
+	PersonImpl2();
+	PersonImpl2(const std::string& name, const Date& birthday, const Address& addr);
+
+	std::string name() const		{ return theName; }
+	std::string birthDate() const	{ return "date"; }
+	std::string address() const		{ return "addr"; }
+
+private:
+	std::string theName;	// implementation detail
+	Date theBirthDate;		// implementation detail
+	Address theAddress;		// implementation detail
+};
+
+
+#include "PersonImpl2.h"
+
+PersonImpl2::PersonImpl2() {}
+
+PersonImpl2::PersonImpl2(const std::string& name, const Date& birthday, const Address& addr) :
+	theName(name), theBirthDate(birthday), theAddress(addr)
+{
+}
+
+
+#include <string>
+#include "Person2.h"
+#include "Date.h"
+#include "Address.h"
+
+int main()
+{
+	std::string n = "hello";
+	Date d;
+	Address a;
+	Person2 p(n, d, a);
+	return 0;
+}

@@ -1,0 +1,163 @@
+38 Item38
+19-Dec-2013
+
+
+Item 38: Model "has-a" or "is-implemented-in-terms-of" through composition 
+
+
+Composition is the relationship between types that arises when objects of one type contains objects of another type
+
+
+e.g.
+class Address { ... };             // where someone lives
+class PhoneNumber { ... };
+
+class Person
+{
+public:
+  ...
+
+private:
+  std::string name;               // composed object
+  Address address;                // ditto
+  PhoneNumber voiceNumber;        // ditto
+  PhoneNumber faxNumber;          // ditto
+};
+
+
+Here Person objects are composed of string, Address, PhoneNumber objects
+Compostion often known as layering, containment, aggregation, embedding
+
+
+Item32 explains public inheritance means "is-a"
+Composition has 2x meanings: "has-a" or "is-implemented-in-terms-of"
+
+That's because there are 2x different software domains:
+- application domain
+- implementation domain
+
+
+
+01.
+Application domain
+Objects correspond to things in the world that you are modelling
+e.g. people, vehicles, video frames
+
+Such objects are part of the application domain
+Composition here expresses "HAS-A" relationship
+
+
+02.
+Implementation domain
+Objects that are purely implementation artefacts
+e.g. buffers, mutexes, search trees
+
+Such objects correspond to software implementation domain
+Composition here expresses "IS-IMPLEMENTED-IN-TERMS-OF" relationship
+
+
+
+PERSON
+Above, Person demonstrates the "has-a" relationship:
+A Person has a name, an address, a faxNumber etc
+
+You wouldn't say a Person "is-a" name or "is-an" address
+Therefore, it's easy to distinguish between "is-a" and "has-a" relationship
+
+
+More difficult is the difference between "is-a" and "is-implemented-in-terms-of" relationship
+
+
+EXAMPLE
+Suppose you need template for classes representing small sets of objects i.e. collections w/o duplicates
+You want to reuse the std::set template but without the overhead that set costs so use (re)use std::list
+
+
+So you decide to have your newly born Set template inherit from list
+i.e. Set<T> will publicly inherit from list<T>
+
+
+// the wrong way to use list for Set
+template<typename T>                       
+class Set: public std::list<T> { ... };
+
+
+This is wrong: Item32 explains, if D is-a B then everything true of B is also true for D
+However, list object may contain duplicates but Set may not so it is untrue that Set is-a list
+
+Because the relationship between these 2x classes isn't "is-a" then
+public inheritance is the wrong way to model that relationship
+
+
+The right way is to realize that a Set object can be "implemented in terms of a" list object
+
+
+template<class T>                   // the right way to use list for Set
+class Set
+{
+public:
+  bool member(const T& item) const;
+  void insert(const T& item);
+  void remove(const T& item);
+  std::size_t size() const;
+
+private:
+  std::list<T> rep;                 // representation for Set data
+};
+
+
+Set member functions can lean heavily on functionality already offered by list
+(and other parts of the standard template library)
+
+
+template<typename T>
+bool Set<T>::member(const T& item) const
+{
+  return std::find(rep.begin(), rep.end(), item) != rep.end();
+}
+
+
+template<typename T>
+void Set<T>::insert(const T& item)
+{
+  if (!member(item))
+  {
+    rep.push_back(item);
+  }
+}
+
+
+template<typename T>
+void Set<T>::remove(const T& item)
+{
+  // see Item 42 for info on "typename" here
+  typename std::list<T>::iterator it = std::find(rep.begin(), rep.end(), item);
+  if (it != rep.end())
+  {
+    rep.erase(it);
+  }
+}
+
+
+template<typename T>
+std::size_t Set<T>::size() const
+{
+  return rep.size();
+}
+
+
+Checkout Item30 to review discussion on inlining
+
+
+Item18 says to design interfaces that are easy to use correctly and difficult to use incorrectly
+If our Set followed STL container conventions then we would require adding a lot more functionality
+
+However, this shouldn't overshadow what's indisputably right about Set:
+the relationship between Set and list - it is NOT "is-a" but it is "is-implemented-in-terms-of"
+
+
+REMEMBER
+* Composition has meanings completely different from that of public inheritance
+
+* In the application domain,    composition means "has-a"
+  In the implementation domain, composition means "is-implemented-in-terms-of"

@@ -1,0 +1,163 @@
+09 Item09
+10-Nov-2013
+
+
+Item 09: Never call virtual functions during construction or destruction
+
+
+You shouldn't call virtual functions during construction or destruction
+because the calls won't do what you think
+
+
+class Transaction
+{                               
+public:                                           
+  Transaction();				 // base class for all transactions
+  virtual void logTransaction() const = 0;       // make type-dependent log entry
+};
+
+Transaction::Transaction()                        
+{                                                 // implementation of base class ctor
+  logTransaction();                               // as final action, log this transaction
+}                                                 
+
+
+// derived class
+class BuyTransaction: public Transaction
+{
+public:
+ virtual void logTransaction() const;           // how to log transactions of this type
+};
+
+
+// derived class
+class SellTransaction: public Transaction
+{      
+public:
+ virtual void logTransaction() const;           // how to log transactions of this type
+};
+
+ 
+What happens here:
+BuyTransaction b;
+
+
+BuyTransaction constructor called but first Transaction constructor must be called:
+base class parts of derived class objects are constructed BEFORE derived class parts are.
+
+logTransaction() will be called in Transaction (despite the fact that it's virtual) NOT in BuyTransaction
+(even though the type is of BuyTransaction)
+
+Why?
+Virtual functions NEVER go down into derived classes
+Instead object behaves if it were of the base type
+
+During base class construction, virtual functions aren't
+
+
+MORE INFO
+Because base class ctor execute before derived class ctor, derived class data members are not initialized yet
+
+If virtual functions call during base class construction went down to derived classes then they
+would certainly refer to local data members but those data members have not been initialized yet
+
+Undefined behavior: calling down to parts of uninitialized object = BAD C++ gives you no way to do it!
+
+
+Note: during base class construction of derived class object, the type IS of base class
+Runtime Type Info (dynamic_cast and typeid) treat object as a base class type
+
+Makes sense because BuyTransaction-specific parts of the object haven't been initialized yet
+So it's safest to treat them as if they didn't exist
+
+An object doesn't become a derived class object until execution of a derived class constructor begins
+
+
+DESTRUCTION
+Once a derived class destructor has to run, the object's derived data members assume undefined values
+So C++ treats them as if they no longer exist
+
+Upon entry to base class dtor, the object becomes a base class object and all parts C++ treat it this way
+(virtual functions, dynamic_cast etc)
+
+
+NEXT PART
+Mentions logTransaction() pure virtual function and may not link or give compiler warnings?
+Not for me: code calls Transaction::logTransaction();
+
+To resolve linker errors (maybe older version of C++ compiler?)
+
+class Transaction
+{
+public:
+  Transaction()
+  {
+     init();					   // call to non-virtual... 
+  }                                    
+
+  virtual void logTransaction() const = 0;
+
+
+private:
+  void init()
+  {
+    logTransaction();                              // ...that calls a virtual!
+  }
+};
+
+
+Either way, the WRONG version of logTransaction() is called when a derived class object was created.
+i.e. BuyTransaction ctor will ALWAYS call Transaction::logTransaction();
+
+
+The only way to avoid this problem is to make sure that none of your constructors or destructors
+call virtual functions on the object being created or destroyed (and that all functions obey constraint)
+
+
+Solution
+Turn logTransaction() into a non-virtual function in Transaction
+Then require derived class constructors pass necessary log info into Transaction constructor
+
+That function can then safely call the non-virtual logTransaction()
+
+
+class Transaction
+{
+public:
+  explicit Transaction(const std::string& logInfo);
+  void logTransaction(const std::string& logInfo) const;   // now a non-virtual func
+};
+
+
+Transaction::Transaction(const std::string& logInfo)
+{
+  logTransaction(logInfo);                                // now a non-virtual call
+}
+
+
+class BuyTransaction: public Transaction
+{
+public:
+ BuyTransaction( parameters ) :
+  Transaction(createLogString( parameters ))             // pass log info to base class ctor
+  { ... }                                                 // 
+
+private:
+  static std::string createLogString( parameters );
+};
+
+
+In other words, since virtual functions can't call down from base class to derived class during
+construction, you can compensate by having derived class pass info to base class ctor instead
+
+
+createLogString is helper function rather than format logInfo in member initialization list
+Also, declared static so can't accidentally refer to BuyTransaction object uninitialized data members
+ 
+That's important: because derived class data members will be undefined state during base class construction
+is the reason why calling virtual functions during base class ctor / dtor doesn't go into derived classes!!
+
+
+REMEMBER
+* Don't call virtual functions during construction or destruction because such calls will never go to a
+  more derived class than that of the currently executing constructor or destructor

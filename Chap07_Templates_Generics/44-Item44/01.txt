@@ -1,0 +1,28 @@
+17/03/2014
+#pragma once
+
+#include <string>
+
+template<typename T, std::size_t n>
+class SquareMatrix
+{
+public:
+	void invert()
+	{
+	}
+};
+
+
+#pragma once
+
+#include "SquareMatrix01.h"
+
+int main()
+{
+	SquareMatrix<double, 5> sm1;
+	sm1.invert();
+
+	SquareMatrix<double, 10> sm2;
+	sm2.invert();
+	return 0;
+}

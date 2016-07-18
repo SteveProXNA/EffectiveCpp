@@ -1,0 +1,49 @@
+10/11/2013
+
+#include "Customer.h"
+
+class PriorityCustomer : public Customer
+{
+public:
+	PriorityCustomer() :
+//		Customer(),
+		priority(1)//,
+	{}
+
+	PriorityCustomer(const PriorityCustomer& rhs);
+	PriorityCustomer& operator=(const PriorityCustomer& rhs);
+
+private:
+	int priority;
+};
+
+
+//PriorityCustomer.cpp
+//#include "PriorityCustomer.h"
+
+PriorityCustomer::PriorityCustomer(const PriorityCustomer& rhs) :
+	priority(rhs.priority)
+{
+	logCall("PriorityCustomer copy constructor");
+}
+
+PriorityCustomer& PriorityCustomer::operator=(const PriorityCustomer& rhs)
+{
+	logCall("PriorityCustomer copy assignment operator");
+
+	priority = rhs.priority;
+	return *this;
+}
+
+
+#include "PriorityCustomer.h"
+
+int main()
+{
+	PriorityCustomer pc1;
+	PriorityCustomer pc2(pc1);
+
+	PriorityCustomer pc3;
+	pc3 = pc1;
+	return 0;
+}

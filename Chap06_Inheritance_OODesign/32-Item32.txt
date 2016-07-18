@@ -1,0 +1,229 @@
+32 Item32
+16-Dec-2013
+
+
+Item 32: Make sure public inheritance models "is-a." 
+
+
+Single most important rule in object-orientated programming with C++:
+public inheritance means "is-a"
+
+
+If class D (derived) publicly inherits from B (base) then you are telling C++ that
+every object of type D is also an object of type B but not vice versa
+
+B represents a more general concept than D
+D represents a more specialized concept than B
+
+You assert that anywhere an object of type B can be used, an object of D can be used as well
+because every object of type D IS an object of type B
+
+However, if you need an object of type D then an object of type B will NOT do;
+every D is a B but not vice versa
+
+
+EXAMPLE
+class Person
+{
+};
+
+class Student : public Person
+{
+};
+
+Person is more general than a student; a student is a specialized type of person
+Any function that expects an arg of Person will also take a Student object
+
+Person p;
+Student s;
+
+eat(p);			// Fine: p is a Person.
+eat(s);			// Fine: s is a Person.
+
+study(s);		// Fine: s is a Student.
+//study(p);		// Error! p is not a Student.
+
+
+This is true only for public inheritance; private inheritance means something entirely different
+WTF does protected inheritance mean?
+
+
+Public inheritance equivalent to "is-a" relationship but watch out...
+Example
+
+class Bird
+{
+public:
+  // birds can fly
+  virtual void fly();                  
+};
+
+
+class Penguin:public Bird
+{            
+  // penguins are birds
+  ...
+};
+
+
+Trouble: this hierarchy says penguins can fly which is not true!
+
+Language:
+birds can fly but we don't mean all types of birds can fly
+birds have the ability to fly
+
+must recognize non-flying birds = new hierarchy:
+
+
+class Bird
+{
+  // no fly function is declared
+  ...                                       
+};
+
+
+
+class FlyingBird : public Bird
+{
+public:
+  virtual void fly();
+  ...
+};
+
+
+
+class Penguin : public Bird
+{
+  // no fly function is declared
+  ...                                       
+};
+
+
+However, some software systems may not need to distinguish between flying and non-flying birds
+If so then the original 2x class hierarchy may be satisfactory
+
+
+Another school of thought to handle the "All birds can fly, penguins are birds, penguins can't fly, uh oh" problem
+Redefine fly() function for penguins to generate runtime error
+
+
+// defined elsewhere
+void error(const std::string& msg);
+
+
+class Penguin: public Bird
+{
+public:
+  virtual void fly()
+  {
+    error("Attempt to make a penguin fly!");
+  }
+  ...
+};
+
+
+This does not say "Penguins CAN'T fly"
+This says "Penguins can fly but it's an error for them to actually try to do it"
+
+
+What's the difference?
+Time error is detected:
+
+"Penguins can't fly" can be enforced by compilers but violations of the rule
+"It's an error for penguins to actually try to fly" can only be detected at runtime
+
+
+to express constraints "Penguins can't fly - period" you need to ensure that there is no such function
+defined for Penguins objects
+
+
+class Bird
+{
+  // no fly function is declared
+  ...                                
+
+};
+
+
+
+class Penguin: public Bird
+{
+  // no fly function is declared
+  ...                                
+};
+
+Now compile error:
+
+Penguin p;
+p.fly();                     // error!
+
+
+This is preferred design that rejects penguin attempts to fly during compilation
+to the one that detects them only at runtime
+
+
+RECTANGLES vs. SQUARES
+class Rectangle
+{
+public:
+  virtual void setHeight(int newHeight);
+  virtual void setWidth(int newWidth);
+
+  virtual int height() const;               // return current values
+  virtual int width() const;
+  ...
+};
+
+
+void makeBigger(Rectangle& r)               // function to increase r's area
+{
+  int oldHeight = r.height();
+  r.setWidth(r.width() + 10);               // add 10 to r's width
+  assert(r.height() == oldHeight);          // assert that r's
+}   
+
+
+class Square : public Rectangle {...};
+
+
+
+Square s;
+assert(s.width() == s.height());           // this must be true for all squares
+
+makeBigger(s);                             // by inheritance, s is-a Rectangle,
+                                           // so we can increase its area
+
+assert(s.width() == s.height());           // this must still be true
+                                           // for all squares
+
+
+It should be clear that the second assertion should never fail:
+by definition the width of square equals the height
+
+
+But the code above allows this to be... what to do?
+
+
+The difficulty in this case is that something applicable to a rectangle
+is not applicable to a square (width and height must be the same)
+
+But public inheritance asserts that everything that applies to base class objects - EVERYTHING - 
+also applies to derived class objects
+
+For rectangles and squares, this assertion is wrong so using public inheritance to model relationship is incorrect
+compilers will let you do it but there's no guarantee that the code will behave properly
+
+Just because the code compiles doesn't mean it will work
+
+
+The is-a relationship is not the only one that can exist between classes
+Two common inter-class relationships are "has-a" and "is implemented-in-terms-of" (Item38 and Item39)
+
+It's not uncommon for C++ designs to go awry because one of these other important relationships was
+incorrectly modelled as "is-a" so ensure you understand the differences among these relationships
+
+
+REMEMBER
+* Public inheritance means "is-a"
+  Everything that applies to base classes must also apply to derived classes because
+  every derived class object IS a base class object

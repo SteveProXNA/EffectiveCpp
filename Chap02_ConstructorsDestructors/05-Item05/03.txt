@@ -1,0 +1,43 @@
+09/11/2013
+
+#include <string>
+
+template<typename T>
+class NamedObject2
+{
+public:
+	// ctor no longer takes const name because nameValue is reference-to-non-const string
+	// The char* constructor is gone because we must have a sterign to refere to.
+	NamedObject2(std::string& name, const T& value);
+
+private:
+	std::string& nameValue;
+	const T objectValue;
+};
+
+
+template<typename T>
+NamedObject2<T>::NamedObject2(std::string& name, const T& value) :
+	nameValue(name),
+	objectValue(value)
+{
+}
+
+
+#include <string>
+#include "NamedObject2.h"
+
+int main()
+{
+	std::string name1 = "stevepro";
+	std::string name2 = "studios";
+	NamedObject2<int> no1(name1, 2);
+	NamedObject2<int> no2(name2, 2);
+
+	//error C2582: 'operator =' function is unavailable in 'NamedObject2<T>'
+	//no1 = no2;
+
+	//ERROR no operator "=" matches these operands
+	//operand types are: NamedObject2<int> = NamedObject2<int>
+	return 0;
+}

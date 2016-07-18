@@ -1,0 +1,18 @@
+05/11/2013
+
+#include <vector>
+
+std::vector<int> vec;
+vec.push_back(0);
+vec.push_back(1);
+vec.push_back(2);
+
+// Like T* const pointer	(const RHS = POINTER)
+const std::vector<int>::iterator iter = vec.begin();
+*iter = 10;
+//++iter;		// ERROR!!	Pointer
+
+// Like const T* pointer	(const LHS = DATA)
+std::vector<int>::const_iterator cIter = vec.begin();
+//*cIter = 10;	// ERROR!!	Data
+++cIter;

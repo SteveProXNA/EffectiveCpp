@@ -1,0 +1,200 @@
+37 Item37
+19-Dec-2013
+
+
+Item 37: Never redefine a function's inherited default parameter value
+
+
+There are 2x kinds of functions you can inherit: virtual and non-virtual
+However, it's always a mistake to redefine an inherited non-virtual function (Item36)
+
+
+So limit this discussion to where you inherit virtual function with a default parameter
+
+
+IMPORTANT
+Virtual functions are dynamically bound BUT default parameters are statically bound
+
+
+Static 	(early) binding	compile time
+Dynamic	(late)	binding	run	time
+
+
+REVIEW
+An object's static type is the type you declare it in program text
+
+
+Consider class hierarchy:
+
+// a class for geometric shapes
+class Shape
+{
+public:
+  enum ShapeColor { Red, Green, Blue };
+
+  // all shapes must offer a function to draw themselves
+  virtual void draw(ShapeColor color = Red) const = 0;
+  ...
+};
+
+
+class Rectangle: public Shape
+{
+public:
+  // notice the different default parameter value — bad!
+  virtual void draw(ShapeColor color = Green) const;
+  ...
+};
+
+
+class Circle: public Shape
+{
+public:
+  virtual void draw(ShapeColor color) const;
+  ...
+};
+
+
+DIAGRAM
+Now consider these pointers:
+
+
+Shape *ps;                       // static type = Shape*
+Shape *pc = new Circle;          // static type = Shape*
+Shape *pr = new Rectangle;       // static type = Shape*
+
+
+All 3x pointers are declared type pointer-to-Shape so they all have Shape* as static type
+It makes absolutely no difference what they are really pointing to - their static type is Shape* regardless
+
+
+However, the object's dynamic type is determined by the type of the object to which it currently refers
+i.e. dynamic type indicates how it will behave
+
+
+EXAMPLE
+pc dynamic type is Circle*
+pr dynamic type is Rectangle*
+
+ps does not have dynamic type because it doesn't refer to any object (yet)
+
+
+ps = pc;			// ps dynamic type is now Circle*
+ps = pr;			// ps dynamic type is now Rectangle*
+
+
+
+VIRTUAL FUNCTIONS
+Virtual functions are dynamically bound meaning that the particular function called is determined
+by the dynamic type of the object through which it is invoked
+
+
+pc->draw(Shape::Red);             // calls Circle::draw(Shape::Red)
+pr->draw(Shape::Red);             // calls Rectangle::draw(Shape::Red)
+
+
+TWIST
+When you consider virtual functions with default parameter values:
+
+virtual functions are dynamically bound BUT
+default parameters are statically bound
+
+
+That means you may invoke a virtual function defined in derived class but using a default parameter in base class:
+pr->draw();                       // calls Rectangle::draw(Shape::Red)!
+
+
+EXPLANATION
+pr dynamic type is Rectangle* so Rectangle::draw() virtual function is called
+Rectangle::draw() default parameter value is Green
+
+But pr static type is Shape* with default parameter value as Red
+Therefore default parameter value for pr->draw() function call is taken from Shape class NOT Rectangle class!
+
+Result: call consisting of strange and certainly unanticipated combination of declarations for draw() in both classes
+
+
+FACT
+ps, pc, pr are pointers has no consequence - problem still persist if these were references
+Important thing is draw() is a virtual function and one of its default parameter values is redefined in a derived class
+
+
+Why?  Answer: efficiency
+If default parameter values were dynamically bound then compilers would need a good way to determine appropriate values
+of virtual functions at runtime = slower and more complicated than the current mechanism to determine during compilation
+
+Decision made to err on side of speed and simplicity of implementation
+Result: enjoy execution behavior that is efficient but can be confusing
+
+
+Look at what happens if you offer default parameter values to users of both base and derived classes
+
+
+class Shape 
+{
+public:
+  enum ShapeColor { Red, Green, Blue };
+  virtual void draw(ShapeColor color = Red) const = 0;
+  ...
+};
+
+
+class Rectangle: public Shape
+{
+public:
+  virtual void draw(ShapeColor color = Red) const;
+  ...
+};
+
+
+pr->draw(); now works but there is code duplication!
+Worse - code duplication with dependencies: if default parameter value changed in Shape then all derived classes must change
+
+Otherwise they'll end up redefining an inherited default parameter value
+What to do?
+
+
+When you have trouble making a virtual function behave the way you'd like then consider an alternative design (Item35)
+
+One alternative is the Non Virtual Interface (NVI) idiom
+Have a public non-virtual function in a base class call a private virtual function that derived classes may redefine
+
+
+Here we have the non-virtual function specify the default parameter which the virtual function does the actual work:
+
+
+class Shape
+{
+public:
+  enum ShapeColor { Red, Green, Blue };
+
+  void draw(ShapeColor color = Red) const           // now non-virtual
+  {
+    doDraw(color);                                  // calls a virtual
+  }
+
+  ...
+
+private:
+  virtual void doDraw(ShapeColor color) const = 0;  // the actual work is
+};                                                  // done in this func
+
+
+class Rectangle: public Shape
+{
+public:
+  ...
+
+private:
+  virtual void doDraw(ShapeColor color) const;       // note lack of a
+  ...                                                // default param val.
+};
+
+
+Because non-virtuals should never be overridden by derived classes (Item36)
+this design makes clear that the default parameter value for draw() color parameter should ALWAYS be Red
+
+
+REMEMBER
+* Never redefine an inherited default parameter value because default parameter values are statically bound
+  while virtual functions - the only functions you should be overriding - are dynamically bound

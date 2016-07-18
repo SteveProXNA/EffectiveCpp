@@ -1,0 +1,162 @@
+46 Item46
+20-Feb-2014
+
+
+Item 46: Define non-member functions inside templates when type conversions are desired
+
+
+Extend Item24 to support mixed mode arithmetic for Rational<T>
+Expect that the code will work similar to Item24
+
+
+template<typename T>
+class Rational
+{
+public:
+  Rational(const T& numerator = 0, const T& denominator = 1);  
+
+  const T numerator() const;           
+  const T denominator() const;         
+};
+
+
+template<typename T>
+const Rational<T> operator*(const Rational<T>& lhs, const Rational<T>& rhs)
+{ ... }
+
+
+Code fails to compile suggests there's something about the templatized Rational that's different from non-template version
+Item24: compilers know what function we're trying to call (operator* taking 2x Rational) but here compilers do NOT know
+
+Instead, they're trying to figure out what function to instantiate (i.e. create) from the template named operator*
+They know function takes 2x parameters of type Rational<T> but in order to instantiate, they need to know what T is - they can't
+
+
+Attempt to deduce T = look at arguments: oneHalf and 2
+oneHalf is ok but how are compilers to figure out T based on argument 2?
+
+Might expect Rational<int> non-explicit constructor to convert 2 to Rational<int> thus deduce T is int but they don't
+because implicit type conversion functions are never considered during template argument deduction
+
+
+IMPORTANT
+Implicit type conversion functions are never considered during template argument deduction.  Never!
+
+
+Such conversions are used during function calls but before you can call a function you have to know which functions exist
+thus you have to deduce parameter types for the relevant function templates (so can call appropriate functions)
+
+But implicit type conversions via constructor calls is not considered during template argument deduction
+Item24 involves no templates so is not an issue - now in template part of C++ (Item1) = now an issue
+
+
+SOLUTION
+Take advantage that friend declaration in a template class can refer to a specific function
+Rational<T> can declare operator* for Rational<T> as a friend function
+
+Class templates don't depend on template argument deduction (only applies to function templates) so T is always known
+at the time class Rational<T> is instantiated.  Easy for Rational<T> class to declare appropriate operator* as a friend
+
+
+template<typename T>
+class Rational
+{
+public:
+
+  ...
+
+friend const Rational operator*(const Rational& lhs, const Rational& rhs);    
+};
+
+
+template<typename T>                                
+const Rational<T> operator*(const Rational<T>& lhs, const Rational<T>& rhs)
+{ ... }
+
+
+Now mixed mode calls to operator* will compile because when oneHalf declare Rational<int>
+the class Rational<int> is instantiated thus friend function operator* takes Rational<int> parameters
+
+
+As a declared function (not function template), compilers can use implicit conversion functions
+(such as Rational non-explicit constructor) when calling it = mixed mode code succeeds
+
+However code won't link!
+
+
+Side track - mention Rational shorthand for Rational<T>
+
+
+LINKER
+operator* function is declared inside Rational but not defined there
+
+We're responsible for defining that functions and we never provide a definition and that's why linkers can't find one
+
+
+Solution
+Merge body of operator* into its declaration
+
+template<typename T>
+class Rational
+{
+public:
+
+  friend const Rational operator*(const Rational& lhs, const Rational& rhs)
+  {
+    return Rational(lhs.numerator() * rhs.numerator(), lhs.denominator() * rhs.denominator());
+  }                                                          
+};
+
+
+INTERESTING
+Use of friendship has nothing to do with a need to access non-public parts of the class
+to make type conversions possible on all arguments we still need a non-member function (Item24)
+
+To have proper function automatically instantiated we need to declare the function inside the class
+
+FRIEND
+Only way to declare a non-member function inside a class is to make it a friend
+
+
+
+Item30 - functions defined inside class are implicitly declared inline
+(this includes friend functions like operator*)
+
+Minimize impact of such inline declarations by having operator* call helper function defined outside class
+Here, non-issue because 1x line of code but may be more feasible for more complex bodies of code
+
+
+template<typename T>
+class Rational;                 
+                                                  
+
+template<typename T>                                    
+const Rational<T> doMultiply(const Rational<T>& lhs, const Rational<T>& rhs)
+{
+  return Rational<T>(lhs.numerator() * rhs.numerator(), lhs.denominator() * rhs.denominator());
+
+}
+
+
+template<typename T>
+class Rational
+{
+public:
+
+  friend const Rational<T> operator*(const Rational<T>& lhs, const Rational<T>& rhs)   
+  { 
+    return doMultiply(lhs, rhs);
+  }                      
+};
+
+
+doMultiply() won't support mixed mode multiplication but it doesn't need to
+It's called by operator* and operator* does support mixed mode
+
+Function operator* supports type conversions as necessary to ensure that 2x Rational objects are being multiplied
+then it passes these 2x objects to an appropriate instantiation of the doMultiply() template to do actual multiplication
+
+
+REMEMBER
+* When writing a class template that offers functions related to the template that support implicit type conversions
+  on all parameters, define those functions as friends inside the class template

@@ -1,0 +1,40 @@
+#pragma once
+
+class Top
+{
+};
+
+class Middle : public Top
+{
+};
+
+class Bottom : public Middle
+{
+};
+
+
+#pragma once
+
+template<typename T>
+class SmartPtr
+{
+public:
+	explicit SmartPtr(T* realPtr)
+	{
+	}
+};
+
+
+#pragma once
+
+#include "Files01.h"
+#include "Files02.h"
+
+int main()
+{
+	//error C2440: 'initializing' : cannot convert from 'SmartPtr<T>' to 'SmartPtr<T>'
+	//SmartPtr<Top> pt1 = SmartPtr<Middle>(new Middle);
+	//SmartPtr<Top> pt1 = SmartPtr<Bottom>(new Bottom);
+	//SmartPtr<const Top> pct2 = pt1;
+	return 0;
+}

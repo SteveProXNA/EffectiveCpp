@@ -1,0 +1,43 @@
+#include <string>
+
+class IPerson
+{
+public:
+	virtual ~IPerson();
+
+	virtual std::string name() const = 0;
+	virtual std::string birthDate() const = 0;
+};
+
+
+class DatabaseID
+{
+};
+
+
+#include <memory>
+#include "Person3.h"
+
+// Factory function to create a Person object for unique databaes ID.
+std::tr1::shared_ptr<IPerson> makePerson(DatabaseID personIdentifier)
+{
+	std::tr1::shared_ptr<IPerson> pp;
+	return pp;
+}
+
+// Function to get a database ID from the user
+DatabaseID askUserForDatabaseID()
+{
+	DatabaseID id;
+	return id;
+}
+
+int main()
+{	
+	DatabaseID id(askUserForDatabaseID());
+
+	// Create an object supporting hte IPerson interface.
+	// Manipulate *pp via the IPerson member functions.
+	std::tr1::shared_ptr<IPerson> pp(makePerson(id));
+	return 0;
+}

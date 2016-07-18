@@ -1,0 +1,152 @@
+45 Item45
+18-Feb-2014
+
+
+Item 45: Use member function templates to accept "all compatible types."
+
+
+Smart pointers are objects that act much like pointers but add functionality pointers don't provide (Item13)
+
+e.g.
+auto_ptr and shared_ptr can be used to automatically delete heap-based resources at the right time
+
+
+NB: iterators are like smart pointers
+
+
+Real pointers support implicit conversions:
+- derived class pointers implicitly convert into base class pointers
+- pointers to non-const objects convert into pointers to const objects
+
+
+Example
+class Top { ... };
+class Middle: public Top { ... };
+class Bottom: public Middle { ... };
+
+Top *pt1 = new Middle;                   // convert Middle* Top*
+Top *pt2 = new Bottom;                   // convert Bottom* Top*
+const Top *pct2 = pt1;                   // convert Top*  const Top*
+
+
+Emulating conversions in user-defined smart pointers is tricky
+template<typename T>
+class SmartPtr
+{
+public:                             
+  explicit SmartPtr(T *realPtr);   
+};
+
+
+
+SmartPtr<Top> pt1 = SmartPtr<Middle>(new Middle);     
+SmartPtr<Top> pt2 = SmartPtr<Bottom>(new Bottom);    
+SmartPtr<const Top> pct2 = pt1;     
+
+
+There is no inherent relationship among different relationships so compilers view SmartPtr<Middle> and SmartPtr<Top>
+as completely different classes no more related than vector<float> or Widget
+
+To get conversions among SmartPtr classes we have to program them explicitly
+
+
+In principle, the number of constructors we need is unlimited
+
+Since a template can be instantiated to generate an unlimited number of functions it seems we don't need a constructor function
+We need a constructor template - Such templates are examples of member function templates (often just member template)
+
+
+Templates that generate member functions of a class
+
+template<typename T>
+class SmartPtr
+{
+public:
+
+  template<typename U>                       
+  SmartPtr(const SmartPtr<U>& other);       
+};
+
+
+i.e. for every type T and U a SmartPtr<T> can be created from a SmartPtr<U>
+Constructors like this are sometimes known as generalized copy constructors
+
+
+NB: copy constructor is NOT defined explicit - that's deliberate
+Type conversions among built-in pointer types (e.g. from derived to base class pointers) are implicit and require no cast
+
+Omitting explicit on the templatized constructor does just that
+
+
+The generalized copy constructor for SmartPtr offers more than we want:
+Can create SmartPtr<Top> from SmartPtr<Bottom> but can also create SmartPtr<Bottom> from SmartPtr<Top>
+
+
+Assuming SmartPtr follows lead of auto_ptr and shared_ptr by offering a get() member function that returns a copy of the built-in
+pointer held by the smart pointer object (Item15) we can use the implementation of the constructor template to restrict conversions
+
+
+template<typename T>
+class SmartPtr
+{
+public:
+
+  template<typename U>
+  SmartPtr(const SmartPtr<U>& other) : heldPtr(other.get()) { ... }             
+
+  T* get() const { return heldPtr; }
+
+private:                                     
+  T *heldPtr;                                
+};
+
+
+We use the member initialization list to initialize SmartPtr<T> data member of type T* with the pointer of type U*
+held by SmartPtr<U> - this will compile only if there is an implicit conversion from a U* pointer to a T* pointer
+
+Net effect is that SmartPtr<T> now has a generalized copy constructor that will compile if passed parameter of compatible type
+Utility of member function templates not limited to constructors but support for them in assignment
+
+
+Example
+shared_ptr
+
+All constructors are explicit except generalized copy constructor
+Implicit conversion from one type of shared_ptr to another is allowed but implicit conversion from built-in pointer
+or other smart pointer type is not permitted (Explicit conversion via a cast is ok)
+
+
+Member function templates don't alter the language: compilers may generate copy constructor and copy assignment (if you don't)
+
+Declaring a generalized copy constructor (a member template) in a class doesn't keep compilers from generating their own copy
+copy constructor (a non-template) so if you want control all aspects of copy construction then must declare both general + normal
+
+The same applies to assignment:
+template<class T> class shared_ptr
+{
+public:
+
+  // copy constructor
+  shared_ptr(shared_ptr const& r);                 
+
+
+  // generalized copy constructor
+  template<class Y>                                
+  shared_ptr(shared_ptr<Y> const& r);            
+
+
+  // copy assignment
+  shared_ptr& operator=(shared_ptr const& r);      
+
+  // generalized copy assignment
+  template<class Y>                                
+  shared_ptr& operator=(shared_ptr<Y> const& r);
+
+};
+
+
+REMEMBER
+* Use member function templates to generate functions that accept all compatible types
+
+* If you declare member templates for generalized copy construction or generalized assignment then
+  you still need to declare the normal copy constructor and copy assignment operator too

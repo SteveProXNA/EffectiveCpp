@@ -1,0 +1,413 @@
+35 Item35
+18-Dec-2013
+
+
+Item 35: Consider alternatives to virtual functions
+
+
+Example
+GameCharacter offer member function healthValue()
+Different characters may calculate health differently, declaring healthValue() virtual seems logical design:
+
+
+class GameCharacter
+{
+public:
+  virtual int healthValue() const;        // return character's health rating;
+  ...                                     // derived classes may redefine this
+};
+
+
+healthValue() is not pure virtual suggests there is default algorithm to calculate health (Item34)
+
+
+Obvious way to design but can be weakness because you may not consider alternatives;
+Let's consider other ways to approach this problem
+
+
+01.
+The Template Method Pattern via the Non-Virtual Interface Idiom
+School of thought: virtual functions should almost always be private:
+
+Retain healthValue() public member function but make it non-virtual and
+have it call a private virtual function that does the real work, doHealthValue()
+
+
+class GameCharacter
+{
+public:
+
+  int healthValue() const               // derived classes do not redefine
+  {                                     // this — see Item 36
+    ...                                 // do "before" stuff — see below
+    int retVal = doHealthValue();       // do the real work
+    ...                                 // do "after" stuff — see below
+    return retVal;
+  }
+
+
+private:
+  virtual int doHealthValue() const     // derived classes may redefine this
+  {
+    ...                                 // default algorithm for calculating
+  }                                     // character's health
+};
+
+
+Basic design
+Having clients call private virtual functions indirectly through public non-virtual functions is known as the
+NON-VIRTUAL (NVI) IDIOM
+
+Manifestation of more general design pattern called Template Method
+The non-virtual function healthValue() is the virtual function's wrapper
+
+
+Advantage NVI idiom is before / after stuff as is guaranteed to be called before and after the virtual function that does the real work
+the wrapper ensures before virtual function called the proper context setup and after call over the context is teared down
+
+Note: NVI idiom involves derived classes redefining private virtual functions - redefining functions they can't call!
+
+Redefining a virtual function specifies how something is to be done
+Calling a virtual function specifies when it will be done - concerns are independent
+
+NVI idiom allows derived classes to redefine a virtual function thus giving them control over how functionality is implemented
+but the base class reserves the right to say when the function will be called
+
+May seem odd but C++ rule that derived classes may redefine private inherited virtual functions is perfectly sensible
+
+Under NVI idiom, not strictly necessary that virtual functions be private:
+Some class hierarchies, derived class implementations expect to invoke base class thus virtual functions must be protected (not private)
+Sometimes virtual functions must be public
+
+
+02.
+The Strategy Pattern via Function Pointers
+NVI idiom is interesting alternative to public virtual functions but it's little more than window dressing
+Still using virtual functions to calculate each character's health
+
+More dramatic design assertion would be to calculate health independent of the character type - 
+such calculations need not be part of the character at all
+
+e.g.
+require that each character constructor be passed a pointer to a health calculation functions
+and call that function to do the actual calculation
+
+
+// forward declaration
+class GameCharacter;                               
+
+
+// function for the default health calculation algorithm
+int defaultHealthCalc(const GameCharacter& gc);
+
+class GameCharacter
+{
+public:
+  typedef int (*HealthCalcFunc)(const GameCharacter&);
+
+  explicit GameCharacter(HealthCalcFunc hcf = defaultHealthCalc)
+  : healthFunc(hcf)
+
+  {
+  }
+
+  int healthValue() const
+  {
+    return healthFunc(*this);
+  }
+  ...
+
+private:
+  HealthCalcFunc healthFunc;
+};
+
+
+This approach is simple application of another common design pattern: Strategy
+Compared to approaches based on virtual functions in GameCharacter hierarchy, it offers flexibility:
+
+* Different instances of the same character type can have different health calculations
+
+class EvilBadGuy: public GameCharacter
+{
+public:
+  explicit EvilBadGuy(HealthCalcFunc hcf = defaultHealthCalc)
+  : GameCharacter(hcf)
+  {
+    ...
+  }
+  ...
+};
+
+
+int loseHealthQuickly(const GameCharacter&);    // health calculation
+int loseHealthSlowly(const GameCharacter&);     // funcs with different
+                                                // behavior
+
+EvilBadGuy ebg1(loseHealthQuickly);             // same-type charac-
+EvilBadGuy ebg2(loseHealthSlowly);              // ters with different
+                                                // health-related
+                                                // behavior
+
+* Health calculation functions for particular character may be changed at runtime
+e.g. GameCharacter might offer a member function setHealthCalculator() that allowed replacement of current health calc function 
+
+
+Health calculation function now no longer member function of GameCharacter hierarchy
+so has no special access to internal parts of object whose health it's calculating
+
+e.g.
+defaultHealthCalculation has no access to non-public parts of EvilBadGuy
+
+If character health can be calc'd based on info available through GameCharacter public interface then not a problem
+Otherwise if accurate health calculation requires non-public info access then it is
+
+It is potential issue anytime you replace functionality inside a class (e.g. via member function)
+with equivalent functionality outside the class (e.g. via non-member non-friend function or via non-friend member function of other class)
+
+Issue persists for remainder of Item because all other design alternatives involve use of functions outside GameCharacter hierarchy
+
+
+General rule to resolve need for non-member functions to have access to non-public parts of a class is to weaken class encapsulation
+e.g. class might declare the non-member functions to be friend functions or may offer public accessor functions for impl. otherwise hidden
+
+Whether the advantages of using function pointer instead of virtual function (e.g. ability to have per-object health calc functions
+and ability to change functions at runtime) offset possibility to decrease GameCharacter encapsulation is case-by-case decision
+
+
+03.
+The Strategy Pattern via tr1::function
+
+Accustom yourself to templates and use of implicit interfaces (Item41), the function pointer-based approach looks rather rigid
+Why must health calculator be a function instead of simply something that acts like a function (e.g. a function object? => functor)
+
+If it must be a function then why can't it be a member function?
+And what must it return an int instead of any type convertible to an int?
+
+
+Constraints evaporate if we replace the use of a function pointer (e.g. healthFunc) with an object of type std::tr1::function
+
+Item54 explains such object may hold any callable entity (i.e. function pointer, function object or member function pointer)
+whose signature is compatible with what is expected
+
+
+Design as above but this time using std::tr1::function
+
+
+class GameCharacter;                                 // as before
+
+int defaultHealthCalc(const GameCharacter& gc);      // as before
+
+
+class GameCharacter
+{
+public:
+   // HealthCalcFunc is any callable entity that can be called with
+   // anything compatible with a GameCharacter and that returns anything
+   // compatible with an int; see below for details
+   typedef std::tr1::function<int (const GameCharacter&)> HealthCalcFunc;
+
+   explicit GameCharacter(HealthCalcFunc hcf = defaultHealthCalc) : healthFunc(hcf)
+   {
+   }
+
+   int healthValue() const
+   {
+     return healthFunc(*this);
+   }
+   ...
+
+private:
+  HealthCalcFunc healthFunc;
+};
+
+
+HealthCalcFunc is a typedef for std::tr1::function instantiation
+That means it acts like a generalized function pointer type
+
+Look at HealthCalcFunc typedef
+std::tr1::function<int (const GameCharacter&)>
+
+
+Note (const GameCharacter&) is the target signature of this tr1::function instantiation
+Target signature is "function taking a reference to a const GameCharacter and returning an int
+
+An object of this tr1::function type (i.e. of type HealthCalcFunc) may hold any callable entity compatible with target signature
+To be compatible means entity's parameter can be implicitly converted to const GameCharacter& and return type implicitly converted to int
+
+
+Compared to above (where GameCharacter held pointer to a function), the design is almost the same
+The difference is that GameCharacter now holds tr1::function object - a generalized pointer to a function
+
+As consequence, clients now have much more flexibility in specifying health calculation functions
+
+
+short calcHealth(const GameCharacter&);          // health calculation
+                                                 // function; note
+                                                 // non-int return type
+
+
+struct HealthCalculator                          // class for health
+{						 // calculation function
+  int operator()(const GameCharacter&) const     // objects 
+  {
+     ...
+  }                                        
+};
+
+
+class GameLevel
+{
+public:
+  float health(const GameCharacter&) const;      // health calculation
+  ...                                            // mem function; note
+};                                               // non-int return type
+
+
+class EvilBadGuy: public GameCharacter		 // as before
+{         
+  ...
+};
+
+
+class EyeCandyCharacter:   public GameCharacter	   // another character
+{
+  ...                                              // type; assume same
+};                                                 // constructor as
+                                                   // EvilBadGuy
+
+
+EvilBadGuy ebg1(calcHealth);                       // character using a
+                                                   // health calculation
+                                                   // function
+
+
+EyeCandyCharacter ecc1(HealthCalculator());        // character using a
+                                                   // health calculation
+                                                   // function object
+
+GameLevel currentLevel;
+
+...
+EvilBadGuy ebg2(                                   // character using a
+  std::tr1::bind(&GameLevel::health,               // health calculation
+          currentLevel,                            // member function;
+          _1)                                      // see below for details
+)
+
+
+Explanation of tr1::bind
+To calculate ebg2 health rating, the health member function in GameLevel class should be used
+
+Now GameLevel::health is a function that is declared to take 1x parameter (reference to GameCharacter)
+but it really takes 2x: it also gets implicit GameLevel parameter - the one this points to
+
+Health calculation functions for GameCharacters however take a single parameter: the GameCharacter whose health is to be calculated
+If we use GameLevel::health for ebg2 then we have to "adapt" it so instead of taking 2x parameters (GameCharacter and GameLevel),
+it only takes one (GameCharacter)
+
+We always want to use currentLevel as the GameLevel object for ebg2 health calculation so we "bind" currentLevel as the GameLevel object
+to be used each time GameLevel::health is called to calculate ebg2 health
+
+That's what tr1::bind call does: it specifies that ebg2's health calculation function should always use currentLevel
+as the GameLevel object
+
+
+Note "_1" means "use currentLevel as the GameLevel obejct when calling GameLevel::health for ebg2"
+Fundamental point: by using tr1::function instead of a function pointer, we're allowing clients to use any compatible callable entity
+when calculating a character's health - cool
+
+
+04.
+The "Classic" Strategy Pattern
+
+Finally, more conventional approach to Strategy design pattern would be to make the health-calculation function
+a virtual member function of a separate health-calculation hierarchy
+
+UML diagram of resulting design
+http://en.wikipedia.org/wiki/Class_diagram
+
+
+GameCharacter is root of an inheritance hierarchy where EvilBadGuy and EyeCandyGuy are derived classes
+HealthCalcFunc is the root of an inheritance hierarchy with derived classes: SlowHealthLoser and FastHealthLoser
+
+Each object of type GameCharacter contains a pointer to an object from the HealthCalcFunc hierarchy
+
+
+// forward declaration
+class GameCharacter;                            
+
+
+class HealthCalcFunc
+{
+public:
+  ...
+
+  virtual int calc(const GameCharacter& gc) const
+  {
+    ... 
+  }
+  ...
+};
+
+
+HealthCalcFunc defaultHealthCalc;
+
+
+class GameCharacter
+{
+public:
+  explicit GameCharacter(HealthCalcFunc *phcf = &defaultHealthCalc) : pHealthCalc(phcf)
+  {
+  }
+
+  int healthValue() const
+  { return pHealthCalc->calc(*this);}
+  ...
+
+private:
+  HealthCalcFunc *pHealthCalc;
+};
+
+
+Approach is quickly recognizable to people familiar with "standard" Strategy pattern implementation
+Plus offers the possibility that an existing health calculation algorithm can be tweaked by adding derived class to HealthCalcFunc hierarchy
+
+
+SUMMARY
+Advice of Item is to consider alternatives to virtual functions when searching for design for the problem you're trying to solve
+Recap of alternatives:
+
+01.
+Use Non-Virtual Idiom (NVI idiom)
+A form of the Template Method design pattern that wraps public non-virtual member functions around less accessible virtual functions
+
+
+02.
+Replace virtual functions with function pointer data members
+A stripped-down manifestation of the Strategy design pattern
+
+
+03.
+Replace virtual functions with tr1::function data members
+Allow use of any callable entity with a signature compatible with what you need
+This, too, is a form of the Strategy design pattern
+
+
+04.
+Replace virtual functions in one hierarchy with virtual functions in another hierarchy
+This is the conventional implementation of the Strategy design pattern
+
+
+Non an exhaustive list of design alternatives to virtual functions but enough to convince you that there are alternatives
+The comparative advantages and disadvantages should make you clear that you should consider them
+
+
+REMEMBER
+* Alternatives to virtual functions include the NVI idiom and various forms of the Strategy design pattern
+  The NVI idiom is itself an example of the Template Method design pattern
+
+* A disadvantage of moving functionality from a member function to a function outside the class is
+  that the non-member function lacks access to the class's non-public members
+
+* std::tr1::function objects act like generalized function pointers
+  Such objects support all callable entities compatible with a given target signature

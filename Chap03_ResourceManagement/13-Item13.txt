@@ -1,0 +1,189 @@
+13 Item13
+20-Nov-2013
+
+
+Item 13: Use objects to manage resources. 
+
+
+
+// return ptr to dynamically allocated object in the Investment hierarchy
+// delete must delete it
+Investment* createInvestment();
+
+
+
+Callers of createInvestment() are responsible for deleting the object that functions returns
+when they are done with it
+
+
+void f()
+{
+	// Call factory function
+	Investment* pInv = createInvestment();
+	...
+
+	// release object
+	delete pInv;
+}
+
+
+
+However, there are several ways in which f() could fail to delete the investment object:
+There may be premature return statement inside "..."
+
+Also, if there were a loop and loop prematurely exited by continue or goto statement
+Finally "..." statement(s) could throw an exception
+
+If so then control would not get to the delete
+
+
+Regardless of how delete were skipped, we'd leak not only the memory containing the investment object
+but also any resources held by that object
+
+
+Summary: relying on f() always getting to the delete isn't viable
+
+
+
+to ensure that the resource returned by createInvestment() is always released, we need to put that resource
+inside an object whose destructor will automatically release the resource when control leaves f()
+
+By putting resources inside objects, we can rely on C++ automatic destructor invocation to ensure resources
+are released
+
+
+Many resources are dynamically allocated on the heap, only used in single block or function
+these should be release when control leaves that block or function
+
+STL auto_ptr is tailor made for this situation:
+auto_ptr is a pointer-like object (smart pointer) whose destructor automatically calls delete on what it points to
+
+
+void f()
+{
+	// call factory function
+	std::auto_ptr<Investment> pInv(createInvestment());
+
+	// automatically delete pInv via auto_ptr dtor
+}
+
+
+DEMO 2x critical aspects of using objects to manage resources:
+
+
+01.
+Resources are acquired and immediately turned over to resource-managing objects
+
+The resource returned by createInvestment() is used to initialize the auto_ptr that will manage it
+The idea of using objects to manage resources is often called RAII Resource Acquisition Is Initialization
+
+Because it's so common to acquire a resource and initialize a resource-managing object in same statement
+Acquired resources are assigned to resource-managing objects instead of initializing them
+
+Either way, every resource is immediately turned over to a resource-managing object time resource acquired
+
+
+02.
+Resource-managing objects use their destructors to ensure that resources are released.
+
+Because destructors are called automatically when an object is destroyed (e.g. when it goes out of scope)
+resources are correctly released, regardless of how control leaves a block
+
+Things get trick when release resource can lead to exceptions being thrown, but address in Item 8.
+
+
+WARNING
+Because auto_ptr automatically deletes what it points to when the auto_ptr is destroyed
+it's important that there never be more than one auto_ptr pointing to an object
+
+If there were then the object would be deleted more than once -> undefined behavior
+
+To prevent such problems auto_ptr has unusual characteristic:
+copying them (via copy constructor or copy assignment operator) sets them to null
+and the copying pointer assumes sole ownership of the resource!
+
+
+// pInv1 points to the object returned from createInvestment
+std::auto_ptr<Investment> pInv1(createInvestment());
+
+
+// pInv2 now points to the object; pInv1 is now null
+std::auto_ptr<Investment> pInv2(pInv1);
+
+
+// now pInv1 points to the object; pInv2 is null
+pInv1 = pInv2;
+
+
+Therefore, auto_ptr aren't the best way to manage all dynamically allocated resources
+STL containers require their contents exhibit "normal" copying behavior so containers of auto_ptrs are NOT allowed
+
+
+ALTERNATIVE
+An alternative to auto_ptr is RCSP
+Reference Counting Smart Pointer
+
+
+RCSP is smart pointer that keeps track of how many objects point to a particular resource
+and automatically deletes the resource when nobody is pointing to it any longer
+
+Similar to garbage collection BUT RCSPs can't break cycles or references
+(2x otherwise unused objects that point to one another)
+
+
+TR1 tr1::shared_ptr is an RCSP, so you could write f() this way:
+
+
+void f()
+{
+	// call factory function
+	std::tr1::shared_ptr<Investment> pInv(createInvestment());
+
+	// use pInv as before
+
+	// automatically delete pInv via shared_ptr's dtor
+}
+
+
+the code looks as before (with auto_ptr) but copying shared_ptrs behaves more naturally
+
+
+void f()
+{
+	// pInv1 points to the object returned from createInvestment
+	std::tr1::shared_ptr<Investment> pInv1(createInvestment());
+
+	// pInv1 and pInv2 both point to the object
+	std::tr1::shared_ptr<Investment> pInv2(pInv1);
+
+	// ditto - nothing has changed
+	pInv1 = pInv1;
+
+	// pInv1 and pInv2 are destroyed and the object they point to is automatically deleted
+}
+
+
+
+ARRAYS
+There is nothing like auto_ptr or shared_ptr for dynamically allocated arrays in C++, not even in TR1
+That's because vector and string can almost always replace dynamically allocated arrays
+
+If you still need auto_ptr and shared_ptr like classes for arrays then use Boost
+boost::scoped_array and boost::shared_array
+
+
+this item guidance to use objects to manage resources suggests if you're releasing resources manually
+e.g. using delete then you are doing something wrong
+
+auto_ptr and shared_ptr make it easy but sometimes you need to craft your own resource-managing classes
+Item 14 and 15
+
+
+NB: Item 18 shows how to modify the interface to createInvestment()
+
+
+REMEMBER
+* To prevent resource leaks, use RAII objects that acquire resources in their constructors and release them in their destructors
+
+* Two commonly useful RAII classes are tr1::shared_ptr and auto_ptr - shared_ptr is usually the better choice,
+  because its behavior is intuitive when copied.  Copying auto_ptr sets it to null

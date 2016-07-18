@@ -1,0 +1,99 @@
+00 Introduction
+04-Nov-2013
+
+
+TERMINOLOGY
+
+
+Declaration
+Tells compilers about the name and type of something but omits details
+
+
+Definition
+Provides compilers with the details a declaration omits
+
+
+Initialization
+Process of giving an object its first value
+
+
+Constructors declared explicit	USE!
+Prevents them from being used to perform implicit type conversions
+
+
+Copy constructor
+Used to initialize an object with a different object of the same type
+
+
+Copy assignment Operator
+Used to copy the value from one object to another of the same type
+
+
+Widget w1;                                  // invoke default constructor
+Widget w2(w1);                              // invoke copy constructor
+
+w1 = w2;                                    // invoke copy
+                                            // assignment operator
+
+If an object is being defined (Widget w3) a (copy) constructor has to be called
+It can't be an assignment
+
+If no new object is being defined (w1 = w2) no constructor, so assignment
+
+
+Copy constructor defines how an object is passed by value
+Pass-by-value means "call the copy constructor"
+
+
+Function objects
+Objects that act like functions
+
+Such objects come from classes that overload operator()
+the function call operator
+
+
+Undefined behavior
+Behavior of some constructs in C++ is literally not defined: can't reliably predict runtime
+
+examples
+// access violation
+int* p = 0;
+cout << *p;
+
+
+Naming Conventions
+lhs
+rhs
+Used as parameter names for functions implementing binary operators
+
+e.g.
+operator==
+operator*
+
+a * b
+operator*(a,b)
+
+Non-member functions
+const Rational operator*(const Rational& lhs, const Rational& rhs);
+
+
+Member functions
+lhs represented by the this pointer
+
+
+Threads
+C++ as a language has no notion of threads, concurrency, STL
+C++ is concerned, multithreaded programs do NOT exist
+
+
+TR1
+Technical Report1
+Specification for new functionality added to C++ standard library
+New class and function templates
+Hash tables, reference-counting smart pointers, regular expressions
+tr1 namespace nested in std namespace
+
+
+Boost
+Offers portable, peer-reviewed, open source C++ libraries
+TR1 functionality based on Boost but Boost offers more

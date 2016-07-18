@@ -1,0 +1,47 @@
+#pragma once
+
+class Window
+{
+};
+
+class SpecialWindow : public Window
+{
+public:
+	void blink()
+	{
+		int x = 7;
+	}
+};
+
+
+#pragma once
+
+#include <memory>
+#include <vector>
+#include "Window3.h"
+
+int main()
+{
+	typedef std::vector<std::tr1::shared_ptr<Window> > VPW;
+	VPW winPtrs;
+
+	for (VPW::iterator iter = winPtrs.begin(); iter != winPtrs.end(); ++iter)
+	{
+		// error C2683: 'dynamic_cast' : 'Window' is not a polymorphic type
+		if (SpecialWindow *psw = dynamic_cast<SpecialWindow*>(iter->get()))
+		{
+			psw->blink();
+		}
+	}
+
+	// better code as does not use dynamic_cast
+	typedef std::vector<std::tr1::shared_ptr<SpecialWindow> > VPSW;
+	VPSW winPtrs;
+
+	for (VPSW::iterator iter = winPtrs.begin(); iter != winPtrs.end(); ++iter)
+	{
+		(*iter)->blink();
+	}
+
+	return 0;
+}

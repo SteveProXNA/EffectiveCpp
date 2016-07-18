@@ -1,0 +1,58 @@
+#include <string>
+#include "Database.h"
+
+class PersonInfo
+{
+public:
+	explicit PersonInfo(DatabaseID pid);
+	virtual ~PersonInfo();
+
+	virtual const char* theName() const;
+	virtual const char* theBirthDate() const;
+
+private:
+	virtual const char* valueDelimOpen() const;
+	virtual const char* valueDelimClose() const;
+};
+
+
+static const int Max_Formatted_Field_Value_Length = 80;
+
+const char* PersonInfo::valueDelimOpen() const
+{
+	// Default opening delimiter.
+	return "[";
+}
+
+const char* PersonInfo::valueDelimClose() const
+{
+	// Default closing delimiter.
+	return "]";
+}
+
+
+const char* PersonInfo::theName() const
+{
+	// Reserve buffer for return value;
+	// Because this is static it's automatically initialized to all zeros
+	static char value[Max_Formatted_Field_Value_Length];
+
+	// Write opening delimiter.
+	strcpy_s(value, Max_Formatted_Field_Value_Length, valueDelimOpen());
+
+	// Append to the string in value this object's
+	// name field (being careful to avoid buffer overrun)
+
+	// Write closing delimiter.
+	strcat_s(value, Max_Formatted_Field_Value_Length, valueDelimClose());
+	return value;
+}
+
+
+#include <memory>
+#include "Person4.h"
+
+int main()
+{
+	return 0;
+}

@@ -1,0 +1,41 @@
+#pragma once
+
+class Investment
+{
+public:
+	bool isTaxFree(int pd) const { return (1 == pd); }
+};
+
+
+#pragma once
+
+#include <memory>
+#include "Investment.h"
+
+Investment* createInvestment()
+{
+	Investment* i = new Investment;
+	return i;
+}
+
+int daysHeld(const Investment* pi)
+{
+	return 1;
+}
+
+int main()
+{
+	std::tr1::shared_ptr<Investment> pInv1(createInvestment());
+
+	// Cannot convert parameter 1 from std::tr1::shared_ptr to const Investment*
+	//int days = daysHeld(pInv1);
+	int days = daysHeld(pInv1.get());
+
+	std::tr1::shared_ptr<Investment> pi1(createInvestment());
+	bool taxable1 = pi1->isTaxFree(1);
+
+	std::auto_ptr<Investment> pi2(createInvestment());
+	bool taxable2 = (*pi2).isTaxFree(2);
+
+	return 0;
+}

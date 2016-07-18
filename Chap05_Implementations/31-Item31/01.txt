@@ -1,0 +1,44 @@
+class Date {};
+class Address {};
+
+#include <string>
+#include "Address.h"
+#include "Date.h"
+
+class Person1
+{
+public:
+	Person1();
+	Person1(const std::string& name, const Date& birthday, const Address& addr);
+
+	std::string name() const;
+	std::string birthDate() const;
+	std::string address() const;
+
+private:
+	std::string theName;	// implementation detail
+	Date theBirthDate;		// implementation detail
+	Address theAddress;		// implementation detail
+};
+
+#include "Person1.h"
+
+Person1::Person1() {}
+
+Person1::Person1(const std::string& name, const Date& birthday, const Address& addr) :
+	theName(name), theBirthDate(birthday), theAddress(addr)
+{
+}	
+
+
+#include <string>
+#include "Person1.h"
+
+int main()
+{
+	std::string n = "hello";
+	Date d;
+	Address a;
+	Person1 p(n, d, a);
+	return 0;
+}

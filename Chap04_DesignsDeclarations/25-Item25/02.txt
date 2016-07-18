@@ -1,0 +1,57 @@
+#pragma once
+// WORKS
+#include "Widget2.h"
+
+int main()
+{
+	WidgetImpl wi1(1, 2, 3);
+	WidgetImpl wi2(2, 4, 6);
+
+	Widget w1(&wi1);
+	Widget w2(&wi2);
+
+	std::swap(w1, w2);
+	return 0;
+}
+
+
+#pragma once
+
+#include <algorithm>
+
+class WidgetImpl
+{
+public:
+	WidgetImpl(int x, int y, int z) :
+	  a(x), b(y), c(z)
+	{
+	}
+
+private:
+	int a, b, c;
+};
+
+
+class Widget
+{
+public:
+	Widget(WidgetImpl* wi) : pImpl(wi) {}
+	void swap(Widget& other)
+	{
+		using std::swap;
+		swap(pImpl, other.pImpl);
+	}
+
+private:
+	WidgetImpl* pImpl;
+};
+
+
+namespace std
+{
+	template<>
+	void swap<Widget>(Widget& a, Widget& b)
+	{
+		a.swap(b);
+	}
+}

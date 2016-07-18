@@ -1,0 +1,198 @@
+07 Item07
+09-Nov-2013
+
+
+Item 07: Declare destructors virtual in polymorphic base classes 
+
+
+class TimeKeeper
+{
+public:
+  TimeKeeper();
+  ~TimeKeeper();
+};
+
+class AtomicClock: public TimeKeeper { ... };
+class WaterClock: public TimeKeeper { ... };
+class WristWatch: public TimeKeeper { ... };
+
+
+Many clients want to access time without details how it's calculated:
+
+Factory Function 
+A function that returns a base class pointer to a newly-created object
+
+
+// return a pointer to dynamically allocated object of TimeKeeper derived class object
+TimeKeeper* ptk = getTimeKeeper();
+...
+delete ptk;
+
+
+IMPORTANT
+TimeKeeper base class has non-virtual destructor
+
+Recipe for disaster because C++ specifies that when a derived class object is deleted
+through a pointer to a base class with non-virtual destructor then the results are undefined
+
+
+What happens at runtime is that derived part of the object is never destroyed?
+The base class part (TimeKeeper part) would be destroyed leading to "partially" destroyed object
+
+An excellent way to leak resources, corrupt data structures and spend lots of time in the debugger
+
+
+Solution
+Simple: give base class virtual destructor
+
+Then deleting a derived class object will do exactly what you want:
+destroy entire object - including all its derived parts
+
+
+NOTE
+If a class does not contain virtual functions that often indicates it's not meant to be used as base class
+When class not intended to be a base class then making the destructor virtual is a bad idea
+
+Although, any class with (at least one) virtual function should almost certainly have a virtual destructor
+
+
+VIRTUAL FUNCTIONS
+Implementations of virtual functions require object that carry info that can be used at runtime
+to determine which virtual functions should be invoked on the object
+
+Info takes form of a pointer called vptr ("virtual table pointer")
+vptr points to an array of function pointers called a vtbl ("virtual table")
+
+When virtual function invoked on object, the actual function is determined by following the
+object's vptr to a vtbl and then looking up the appropriate function pointer in the vtbl.
+
+
+Example
+class Point
+{
+public:
+	Point(int xCoord, int yCoord);
+	~Point();
+
+private:
+	int x, y;
+};
+
+
+Point class contains 2x ints => 64-bits and fit into C 64-bit register
+If Point's destructor virtual then Point size changes
+
+32-bit architecture	9 6-bits	(2x 64 + 32-bit for vptr)
+64-bit architecture	128-bits	(2x 64 + 64-bit for vptr)	64-bit pointers!
+
+So increase Point size by 50-100%
+
+
+IMPORTANT
+Gratuitously declaring all destructors virtual is just as wrong as never declaring them as virtual
+Summarize: declare a virtual destructor in a class if and only if that class contains at least 1x virtual fn
+
+
+Another issue: use class as base class when shouldn't
+
+e.g.
+class SpecialString : public std::string
+{
+};
+
+
+Looks innocuous but if you convert a pointer-to-SpecialString to pointer-to-string
+then delete the string pointer you will have undefined behavior
+
+SpecialString* pss = new SpecialString();
+std::string* ps;
+
+ps = pss;
+delete ps;
+
+
+Same applies to any class lacking a virtual destructor, includes:
+STL container types (vector, list, set, tr1::unordered_map)
+
+Do not do this!  Although C++ compiler cannot help you if you inadvertently do this
+(like Java final classes or C# sealed classes)
+
+
+FINALLY
+Class with pure virtual function results in abstract classes;
+classes that can't be instantiated (can't create object of that type)
+
+Sometimes you'd like class to be abstract but you don't have any pure virtual functions;
+What to do?
+
+
+Abstract class intended to be base class and base class should have virtual destructor
+And pure virtual function yields an abstract class
+
+Solution:
+simple - declare a pure virtual destructor in the class you want to be abstract
+
+
+Twist	(trick for new players!)
+class AMOV
+{
+public:
+	virtual ~AMOV() = 0;
+};
+
+
+AMOV class has pure virtual function so it's abstract and has virtual destructor (no problem above)
+But you MUST provide a definition for the pure virtual function!
+
+2x ways:
+
+01.
+class AMOV
+{
+public:
+	virtual ~AMOV() = 0 {}	
+};
+
+
+
+02.
+class AMOV
+{
+public:
+	virtual ~AMOV() = 0;
+};
+
+AMOV::~AMOV()
+{
+}
+
+
+Destructors: most derived class destructor called first then each base class called.
+Compilers generate call to ~AMOV from its derived class destructor so you MUST provide body for function
+
+If you don't then the linker will complain:
+error LNK2019: unresolved external symbol "public: virtual __thiscall AMOV::~AMOV(void)"
+
+
+FINALLY
+Virtual destructor rule applies only to polymorphic base classes;
+base classes designed to allow manipulation of derived class types thru base class interfaces
+
+
+Not all base classes are designed to be used polymorphically
+e.g. std::string or STL container types
+
+
+Some classes are designed to be base classes but not used polymorphically
+e.g. Uncopyable
+
+these are not designed to allow manipulation of derived class objects via base class interfaces
+As a result they do not need virtual destructors!
+
+
+REMEMBER
+* Polymorphic base classes should declare virtual destructors.
+  If a class has any virtual functions then it should have a virtual destructor
+
+* Classes not designed to be base classes or not designed to be used polymorphically
+  should not declare virtual destructors

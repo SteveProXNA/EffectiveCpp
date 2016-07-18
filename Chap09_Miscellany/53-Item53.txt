@@ -1,0 +1,50 @@
+53 Item53
+31-Mar-2014
+
+
+Item 53: Pay attention to compiler warnings
+
+
+Many programmers ignore compiler warnings; if the problem was serious then it would be an error?
+
+
+class B
+{
+public:
+	virtual void f() const;
+};
+
+
+class D : public B
+{
+public:
+	virtual void f()
+};
+
+
+WARNING
+D::f redefine virtual function B::f but there is a mistake: f is a const member function D is not const
+
+warning: D::f() hides virtual B::f()
+
+
+Of course D::hides B::f - that's what it's supposed to do!
+Wrong
+
+Compiler is tryting to tell you that the f declared in B has not been redeclared in D
+Instead it is hidden (Item33)
+
+
+Best practice to write code that compiles warning-free even at the highest warning level
+Before you dismiss a warning you should understand exactly what it is trying to tell you
+
+
+Warnings are implementation-dependent.  Not good idea to get sloppy and rely on compilers to spot your mistakes
+Function-hiding code above, for instance, goes through a different (but widely used) compiler 
+
+
+REMEMBER
+* Take compiler warnings seriously and strive to compile warning-free at the maximum warning-level supported by your compilers
+
+* Don't become dependent on compiler warnings because different compilers warn about different things
+  Porting to a new compiler may eliminate warning messages you've come to rely on

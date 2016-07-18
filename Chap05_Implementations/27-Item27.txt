@@ -1,0 +1,348 @@
+27 Item27
+05-Dec-2013
+
+
+Item 27: Minimize casting.
+
+
+C++ designed to guarantee that type errors are impossible:
+If your program compiles cleanly then it's not trying to perform any unsafe or nonsensical operations on any objects
+
+This is a valuable guarantee.  Don't forgo it lightly
+
+
+Unfortunately, casts subvert the type system.  This can lead to all kinds of trouble and subtle bugs
+Unlike C, C#, Java, in C++, casting is a feature that you want to approach with great respect
+
+
+2x old C-style casts
+
+// cast expression to be of type T
+(T)expression
+
+
+Function-style casts use this syntax
+T(expression)
+
+
+C++ offers 4x new cast forms (new-style or C++ style casts)
+
+const_cast<T>(expression)
+dynamic_cast<T>(expression)
+reinterpret_cast<T>(expression)
+static_cast<T>(expression)
+
+
+const_cast<T>(expression)
+typically used to cast away constness
+only C++ style that can do this
+
+(e.g. const to non-const)
+
+
+dynamic_cast<T>(expression)
+used to perform "safe downcasting" i.e. determine whether an object is of particular type in inheritance hierarchy
+only cast that cannot be performed using old-style syntax
+
+Also the only cast that may have a significant runtime const
+
+
+reinterpret_cast<T>(expression)
+intended for low-lever casts that yield implementation-dependent (i.e. unportable) results
+e.g. casting a pointer to an int
+
+Such casts should be rare outside low-level code
+e.g. debugging allocator for raw memory
+
+
+static_cast<T>(expression)
+used for to force implicit conversions (e.g. non-const object to const object as Item3 : int to double)
+can also be used to perform the reverse of many such conversions (void* to typed pointers)
+
+although it cannot cast from const to non-const objects (only const_cast can do that)
+
+
+Old-style casts are legal but new forms are preferable - easier to identify e.g. grep
+thus simplifying the process of finding places in the code where the type system is being subverted
+
+Also, more narrowly specified purpose of each cast makes it possible for compilers to diagnose usage errors
+e.g. if try to cast away constness using a new-style cast other than const_cast then your code won't compile
+
+
+Only use old-style cast when want to call an explicit constructor to pass an object to a function
+
+e.g.
+class Widget
+{
+public:
+	explicit Widget(int s) : mysize(s) {}
+
+private:
+	int mysize;
+};
+
+
+// create Widget from int with function-style cast
+doSomeWork(Widget(15));
+
+// create Widget from int with C++ (new) style cast
+doSomeWork(static_cast<Widget>(15));
+
+
+Deliberate object creation doesn't "feel" like a cast so probably use the function-style cast instead
+of static_cast but otherwise use new-style casts all the time
+
+
+MISTAKE
+Many programmers believe that casts do nothing but tell compilers to treat one type as another - mistake!
+Type conversions of any kind (explicit via casts or implicit by compilers) lead to code that is execute at runtime
+
+
+e.g.
+int x, y;
+
+// divide x by y but use floating point division
+double d = static_cast<double>(x) / y;
+
+
+The cast from int x to double generates code because on most architectures, the underlying representations for an int
+is different for a double - not surprising
+
+But:
+class Base {};
+class Derived : public Base {};
+
+// implicitly convert Derived* to Base*
+Derived d;
+Base* pb = &d;
+
+
+Here create base class pointer to a derived class object but sometimes the 2x pointer values will NOT be the same
+An offset is applied at runtime to the Derived* pointer to get the correct Base* pointer value
+
+Demos that a single object (an object of type Derived) may have more than one address
+e.g. address when pointed to by Base* pointer vs. address when pointed to by Derived* pointer
+
+This can't happen in C, C#, Java but it can happen in C++
+
+This happens all the time in multiple inheritance and usually in single inheritance
+You should generally avoid making assumptions about how things are laid out in C++
+
+You should certainly not perform casts based on such assumptions!
+e.g. casting object addresses to char* pointers and then using pointer arithmetic on them yields undefined behavior
+
+
+The way objects are laid out and the way their addresses are calculated varies from compiler to compiler
+So if casts work on one platform doesn't always mean they'll work on others - too many burned the hard way
+
+
+INTERESTING
+Thing about casts is it's easy to write something that looks right but is wrong
+
+e.g.
+Many application frameworks require virtual member function implementations in derived classes call their base class
+Suppose Window base class and SpecialWindow derived class both define virtual function onResize()
+
+Then SpecialWindow onResize() is expected to invoke Window onResize()
+here is one possible implementation but doesn't work
+
+class Window
+{
+public:
+	virtual void onResize() {}
+
+	virtual ~Window() {}
+};
+
+class SpecialWindow : public Window
+{
+public:
+	virtual void onResize()
+	{
+		// this doesn't work!
+		static_cast<Window>(*this).onResize();
+	}
+};
+
+
+static_cast<Window>(*this).onResize(); is new-style cast but does NOT invoke onResize() on current object
+Instead, the cast creates a new temporary copy of the base class part of *this then invokes onResize() on the copy!
+
+It doesn't call Window::onResize() on the current object and then perform SpecialWindow specific actions
+it calls Window::onResize() on a copy of the base class part of the current object before performing actions
+
+
+Prospect: code will leave current object in invalid state
+one where base class modifications have not been made but derived class ones have been
+
+
+SOLUTION
+Eliminate the cast and replace what you want to say Window::onResize()
+Don't trick compilers into treating *this as a base class object!
+
+
+class Window
+{
+public:
+	virtual void onResize() {}
+	virtual ~Window() {}
+};
+
+class SpecialWindow : public Window
+{
+public:
+	virtual void onResize()
+	{
+		Window::onResize();
+	}
+};
+
+
+DYNAMIC CAST
+Dynamic cast can be quite slow
+e.g. one implementation is based in part on string comparisons of class names
+
+If you perform dynamic_cast on an object in single inheritance 4x levels deep then could cost you 4x strcmp calls
+Deeper hierarchy or multiple inheritance would be more expensive
+
+Be leery of casts in general esp. dynamic_cast in performance sensitive code
+
+
+Need for dynamic_cast arise because you want to perform derived class operations on potential derived class object
+but you have pointer or reference to base through which to manipulate the object
+
+2x general approaches
+
+01.
+Use containers to store pointers (smart pointers Item13) to derived class objects directly
+thus eliminating need to manipulate such objects through base class interfaces
+
+e.g.
+class Window
+{
+};
+
+class SpecialWindow : public Window
+{
+public:
+	void blink()
+	{
+		int x = 7;
+	}
+};
+
+
+typedef std::vector<std::tr1::shared_ptr<Window> > VPW;
+VPW winPtrs;
+
+for (VPW::iterator iter = winPtrs.begin(); iter != winPtrs.end(); ++iter)
+{
+	// error C2683: 'dynamic_cast' : 'Window' is not a polymorphic type
+	if (SpecialWindow *psw = dynamic_cast<SpecialWindow*>(iter->get()))
+	{
+		psw->blink();
+	}
+}
+
+
+didn't compile for me
+but try this instead
+
+// better code as does not use dynamic_cast
+typedef std::vector<std::tr1::shared_ptr<SpecialWindow> > VPSW;
+VPSW winPtrs;
+
+for (VPSW::iterator iter = winPtrs.begin(); iter != winPtrs.end(); ++iter)
+{
+	(*iter)->blink();
+}
+
+
+Of course, won't allow you to store pointers to all possible Window derivatives in the same container
+Either work with multiple type-safe containers or
+
+
+02.
+Alternative: manipulate all possible Window derivatives through base class interface and provide virtual functions
+in the base class that will let you do what you need
+
+e.g.
+though SpecialWindow can blink, it may make sense to declare the function in the base class
+offering a default (nop) implementation that does nothing
+
+class Window
+{
+public:
+	virtual void blink() {}
+};
+
+class SpecialWindow : public Window
+{
+public:
+	virtual void blink()
+	{
+		// ...
+	}
+	
+};
+
+
+typedef std::vector<std::tr1::shared_ptr<Window> > VPW;
+VPW winPtrs;
+
+for (VPW::iterator iter = winPtrs.begin(); iter != winPtrs.end(); ++iter)
+{
+	(*iter)->blink();
+}
+
+
+Neither option is universally applicable but provide viable alternative to dynamic_cast
+Embrace them
+
+
+AVOID
+Design involve dynamic_cast that looks like this:
+
+class Window { ... };
+
+
+typedef std::vector<std::tr1::shared_ptr<Window> > VPW;
+VPW winPtrs;
+
+
+for (VPW::iterator iter = winPtrs.begin(); iter != winPtrs.end(); ++iter)
+{
+
+  if (SpecialWindow1 *psw1 = dynamic_cast<SpecialWindow1*>(iter->get()))
+  { ... }
+  else if (SpecialWindow2 *psw2 = dynamic_cast<SpecialWindow2*>(iter->get()))
+  { ... }
+  else if (SpecialWindow3 *psw3 = dynamic_cast<SpecialWindow3*>(iter->get()))
+  { ... }
+
+}
+
+
+This generates code that's big and slow and brittle: add new specialWindow and must update the if-else statement
+Code like this should almost always be replaced with something based on virtual function calls
+
+
+Good C++ uses few casts but not practical to get rid of all of them
+Cast from int to double is reasonable though not strictly necessary
+
+(code could be rewritten to declare new variable of type double that's initialized with x value)
+
+
+Casts should be isolated as much as possible, typically hidden inside functions whose interfaces
+shield callers from the grubby work being done
+
+
+REMEMBER
+* Avoid casts whenever practical, esp. dynamic_cast in performance-sensitive code
+  If a design requires casting then try to develop a cast-free alternative
+
+* When casting is necessary, try to hide it inside a function
+  Clients can then use the function instead of putting casts in their own code
+
+* Prefer C++ style casts to old-style casts
+  They are easier to see and they are more specific about what they do

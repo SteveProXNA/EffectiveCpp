@@ -1,0 +1,65 @@
+09/11/2013
+
+#include <memory>
+#include "DBConnection.h"
+
+// Resource managing class for DBConnection
+// Call close() on behalf of clients in dtor.
+class DBConn
+{
+public:
+	DBConn(DBConnection database) :
+		db(database)
+	{
+	}
+
+	~DBConn()
+	{
+		try
+		{
+			db.close();
+		}
+		catch (...)
+		{
+			// make log entry.
+			std::abort();
+		}
+	}
+
+private:
+	DBConnection db;
+};
+
+
+#include <stdlib.h>
+
+class DBConnection
+{
+public:
+	// Function to return DBConnection objects.
+	static DBConnection create()
+	{
+		static DBConnection db;
+		return db;
+	}
+
+	// Close connection; throw an exception if closing fails.
+	void close()
+	{
+		throw 5;
+	}
+};
+
+
+#include "DBConn.h"
+
+int main()
+{
+	// Clients create DB Connection.
+	DBConn db(DBConnection::create());
+
+	// End of block, the DBConn object is destroyed
+	// Automatically call close on DBConnection obj
+
+	return 0;
+}

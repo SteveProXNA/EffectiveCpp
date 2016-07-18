@@ -1,0 +1,168 @@
+42 Item42
+11-Feb-2014
+
+
+Item 42: Understand the two meanings of typename
+
+
+template<class T> class Widget;                 // uses "class"
+template<typename T> class Widget;              // uses "typename"
+
+
+When declaring template type parameter, class and typename mean exactly the same thing
+C++ doesn't always view class and typename as equivalent
+
+Why?
+To understand, we have to understand 2x kinds of names you can refer to in a template
+
+
+EXAMPLE
+template<typename C>                            // print 2nd element in
+void print2nd(const C& container)               // container;
+{                                               // this is not valid C++!
+  if (container.size() >= 2)
+  {
+     C::const_iterator iter(container.begin()); // get iterator to 1st element
+     ++iter;                                    // move iter to 2nd element
+     int value = *iter;                         // copy that element to an int
+     std::cout << value;                        // print the int
+  }
+}
+
+
+2X local variables
+iter		C::const_iterator	type that depends on template parameter C
+value		int			does not depend on any template parameter
+
+
+Names in a template that are dependent on template parameter are called dependent names
+When nested in a class they are called nested dependent names
+
+C::const_iterator
+nest dependent type name	i.e. nested dependent name that refers to a type
+
+
+NOTE: int is a non-dependent name
+
+
+Nested dependent names can lead to parsing difficulties:
+
+template<typename C>
+void print2nd(const C& container)
+{
+  C::const_iterator * x;
+  ...
+}
+
+
+If C::const_iterator not a type then could be C static data member named const_iterator multiplied by (global variable) x
+Until C is know there's no way to know if C is a type of not
+
+When the template print2nd() is parsed, C isn't known!
+
+
+C++ has a rule to resolve this ambiguity:
+If the parser encounters a nested dependent name in a template then it assumes that the name is NOT a type
+Unless you tell it otherwise
+
+
+By default, nested dependent names are not types (exception)
+
+template<typename C>
+void print2nd(const C& container)
+{
+  if (container.size() >= 2)
+  {
+     C::const_iterator iter(container.begin());   // this name is assumed to
+     ...                                          // not be a type
+
+
+To tell C++ that C::const_iterator is a type we must put TYPENAME immediately in front of it:
+
+template<typename C>                           // this is valid C++
+void print2nd(const C& container)
+{
+  if (container.size() >= 2) 
+  {
+    typename C::const_iterator iter(container.begin());
+    ...
+  }
+}
+
+
+RULE
+Anytime you refer to a nested dependent type name in a template then you must immediately precede it by TYPENAME
+
+
+typename should be used to identify ONLY nested dependent type names;
+other names shouldn't have it
+
+
+E.g.
+template<typename C>                   // typename allowed (as is "class")
+void f(const C& container,             // typename not allowed
+     typename C::iterator iter);       // typename required
+
+
+const C& container	not nested dependent type name	(it's not nested inside anything dependent on a template parameter)
+C::iterator		nested dependent type name so required to be preceded by typename
+
+
+EXCEPTION to "typename must precede nested dependent type names" rule:
+typename must NOT precede nested dependent type names in a list of base classes or as a base class identifier in a member initialization list
+
+
+E.g.
+
+template<typename T>
+class Derived: public Base<T>::Nested
+{ 					// base class list: typename not
+public:                                 // allowed
+
+  explicit Derived(int x) 
+  : Base<T>::Nested(x)                  // base class identifier in mem
+  {                                     // init. list: typename not allowed
+    typename Base<T>::Nested temp;      // use of nested dependent type
+    ...                                 // name not in a base class list or
+  }                                     // as a base class identifier in a
+  ...                                   // mem. init. list: typename required
+};
+
+
+REAL WORLD Example
+Suppose write a function template that takes an iterator and want to make a local copy, temp, of the object the iterator points to
+
+template<typename IterT>
+void workWithIterator(IterT iter)
+{
+	typename std::iterator_traits<IterT>::value_type temp(*iter);
+}
+
+
+std::iterator_traits<IterT>::value_type is traits (Item47)
+C++ way to say "the type of thing pointed to by objects of type IterT
+
+Because std::iterator_traits is a nested dependent typename we must precede it by typename
+
+
+Create a typedef to ease typing
+template<typename IterT>
+void workWithIterator(IterT iter)
+{
+	typedef typename std::iterator_traits<IterT>::value_type value_type;
+	value_type temp(*iter);
+}
+
+
+typedef typename looks weird but typename is required as is nested dependent typename with typedef (type definition)
+
+
+COMPILER
+Some older compilers reject typename which means typename and nested dependent type names can lead to mild portability issues
+
+
+REMEMBER
+* when declaring template parameters, class and typename are interchangeable
+
+* Use typename to identify nested dependent type names, except in base class lists or as a base class identifier
+  in a member initialization list

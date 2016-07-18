@@ -1,0 +1,29 @@
+class File
+{
+};
+
+
+// Virtual base class.
+class InputFile : virtual public File
+{
+};
+
+
+// Virtual base class.
+class OutputFile : virtual public File
+{
+};
+
+
+// Deadly Multiple Inheritance diamond.
+class IOFile : public InputFile, public OutputFile
+{
+};
+
+
+#include "File2.h"
+
+int main()
+{
+	return 0;
+}

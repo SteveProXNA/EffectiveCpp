@@ -1,0 +1,50 @@
+#pragma once
+
+#include <memory>
+class Mutex2
+{
+};
+
+// Lock mutex pointed to by pm
+void lock(Mutex2* pm)
+{
+}
+
+// Unlock the mutex
+void unlock(Mutex2* pm)
+{
+	int x = 7;
+}
+
+class Lock2
+{
+public:
+	explicit Lock2(Mutex2* pm) : mutexPtr(pm, unlock)
+	{
+		lock(mutexPtr.get());
+	}
+
+	~Lock2()
+	{
+	}
+private:
+	std::tr1::shared_ptr<Mutex2> mutexPtr;
+};
+
+
+#pragma once
+#include "Lock2.h"
+
+int main()
+{
+	// Define the mutex you need to use.
+	Mutex2 m;
+
+	// Create block to define critical section.
+	Lock2 m1(&m);
+
+	Lock2 m2(m1);
+
+	// Automatically unlock mutex end-of-block.
+	return 0;
+}

@@ -1,0 +1,153 @@
+48 Item48
+21-Feb-2014
+
+
+Item 48: Be aware of template metaprogramming
+
+
+Template MetaProgramming (TMP) is the process of writing template-based C++ programs that execute during compilation
+
+A template metaprogram is a program written in C++ that executes inside the C++ compiler
+When TMP finishes running, the output - pieces of C++ source code instantiated from templates - is then compiled as usual
+
+
+C++ was not designed for template metaprogramming; it was discovered when templates were added to C++
+
+
+Because template metaprograms execute during C++ compilation, they can shift work from runtime to compile time
+TMP makes smaller executables, shorter runtimes, less memory requirements although compilation may take longer
+
+
+Item47 shifts runtime typeid check to compile time check using traits because traits approach is TMP
+i.e. traits enable compile-time if...else computation on types
+
+
+void advance(IterT& iter, DistT d)
+{
+  if (iter is a random access iterator)
+  {
+    iter += d;                                     
+  }                                                
+  else
+  {
+    if (d >= 0) { while (d--) ++iter; }            
+    else { while (d++) --iter; }                   
+  }                                                
+}
+
+
+template<typename IterT, typename DistT>
+void advance(IterT& iter, DistT d)
+{
+  if (typeid(typename std::iterator_traits<IterT>::iterator_category) == typeid(std::random_access_iterator_tag))
+  {
+     iter += d;                                     
+  }                                                 
+  else
+  {
+    if (d >= 0) { while (d--) ++iter; }             
+    else { while (d++) --iter; }                    
+  }                                                 
+}
+
+
+
+EXAMPLE
+mstd::list<int>::iterator iter;
+advance(iter, 10);
+
+
+Typeid fails here because list<int> iterator is bidirectional NOT random access thus the += line fails
+But compilers are obliged to make sure that all source code is valid even if it's not executed
+
+i.e. "iter += d" isn't valid when iter isn't random access iterator
+
+void advance(std::list<int>::iterator& iter, int d)
+{
+  if (typeid(std::iterator_traits<std::list<int>::iterator>::iterator_category) == typeid(std::random_access_iterator_tag))
+  {
+    iter += d;
+  }
+  else
+  {
+    if (d >= 0)
+    {
+      while (d--)
+      {
+        ++iter;
+      }
+    }
+    else
+    {
+      while (d++)
+      {
+        --iter;
+      }
+    }
+  } 
+}
+
+
+Contrast this with traits TMP solution: code for different types is split into separate functions
+which uses operations applicable to the types for which it is written
+
+
+RECURSION
+TMP has no real looping construct so the effect of loops is accomplished via recursion
+TMP loops don't involve recursive function calls, they invoke recursive template instantiations
+
+TMP factorial computation demonstrates looping through recursive template instantiation
+Also demonstrates one way in which variables are created and used in TMP
+
+
+template<unsigned n>
+struct Factorial
+{
+  enum
+  {
+    value n * Factorial<n-1>::value;
+  };
+}
+
+
+template<>
+struct Factorial<0>
+{
+  enum
+  {
+    value = 1;
+  };
+}
+
+
+int main()
+{
+  std::cout << Factorial<5>::value;            // prints 120
+  std::cout << Factorial<10>::value;           // prints 3628800
+}
+
+
+Given this template metaprogram (single template metafunction : Factorial)
+you get value of factorial(n) by referring to Factorial<n>::value
+
+here the template specialization Factorial<0> causes recursion to terminate
+
+
+SUMMARY
+Three things TMP can accomplish
+
+1. Ensuring dimensional unit correctness
+2. Optimizing matrix operations
+3. Generating custom design pattern implementations
+
+
+Cons:
+syntax is unintuitive, tool support is weak and can't use debuggers for template metaprogams
+
+
+REMEMBER
+* Template metaprogramming can shift work from runtime to compile-time
+  thus enabling earlier error detection and higher runtime performance
+
+* TMP can be used to generate custom code based on combinations of policy choices
+  and it can also be used to avoid generating code inappropriate for particular types

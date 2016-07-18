@@ -1,0 +1,23 @@
+09/11/2013
+
+#include <vector>
+
+class Widget
+{
+public:
+	// Assume this might emit an exception.
+	~Widget() {}
+};
+
+void doSomething()
+{
+	std::vector<Widget> v;
+	//...
+
+	// v is automatically destroyed here.
+}
+
+int main()
+{
+	return 0;
+}

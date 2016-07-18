@@ -1,0 +1,35 @@
+01 Item01
+05-Nov-2013
+
+
+Item 01: View C++ as a federation of languages 
+
+
+C++ is multiparadigm programming language:
+procedural
+object-orientated
+functional
+generic
+metaprogramming features
+
+
+C++ is not a single language;
+C++ is a federation of languages
+
+
+01. C
+02. Object-Orientated C++
+03. Template C++
+04. STL
+
+
+Pass by value	(C)
+More efficient that pass by reference for built-in (C-like) types
+
+Pass by reference to const	(OO, Template)
+Better for user-defined objects (with constructors / destructors)
+Esp. true for template C++ (you don't know type you're dealing)
+
+Pass by value	(STL)
+Better for STL because iterators and function objects are modelled on pointers in C
+Iterators and function objects in STL pass by value is better

@@ -1,0 +1,66 @@
+// The Strategy Pattern via Function Pointers.
+
+// Forward declaration
+class GameCharacter;
+
+// Function for the default health calculation algorithm.
+int defaultHealthCalc(const GameCharacter& gc)
+{
+	return 0;
+}
+
+
+class GameCharacter
+{
+public:
+	typedef int (*HealthCalcFunc)(const GameCharacter&);
+
+	explicit GameCharacter(HealthCalcFunc hcf = defaultHealthCalc) :
+		healthFunc(hcf)
+	{
+	}
+
+	int healthValue() const
+	{
+		return healthFunc(*this);
+	}
+
+private:
+	HealthCalcFunc healthFunc;
+};
+
+
+class EvilBadGuy : public GameCharacter
+{
+public:
+	explicit EvilBadGuy(HealthCalcFunc hcf = defaultHealthCalc) :
+		GameCharacter(hcf)
+		{
+		}
+};
+
+
+#include "GameCharacter2.h"
+
+int loseHealthFast(const GameCharacter&)
+{
+	return 20;
+}
+
+int loseHealthSlow(const GameCharacter&)
+{
+	return 10;
+}
+
+int main()
+{
+	GameCharacter* gc1 = new EvilBadGuy(loseHealthFast);
+	GameCharacter* gc2 = new EvilBadGuy(loseHealthSlow);
+
+	int h1 = gc1->healthValue();
+	int h2 = gc2->healthValue();
+
+	delete gc2;
+	delete gc1;
+	return 0;
+}

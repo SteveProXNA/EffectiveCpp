@@ -1,0 +1,52 @@
+#pragma once
+
+#include <string>
+
+class Person
+{
+public:
+	Person() : name("AAAA"), addr("BBBB")
+	{
+	}
+	virtual ~Person() {}
+
+private:
+	std::string name;
+	std::string addr;
+};
+
+
+#pragma once
+
+#include <string>
+#include "Person.h"
+
+class Student : public Person
+{
+public:
+	Student() : schoolName("CCCC"), schoolAddr("DDDD")
+	{
+	}
+	~Student() {}
+
+private:
+	std::string schoolName;
+	std::string schoolAddr;
+};
+
+
+#pragma once
+
+#include "Student.h"
+
+bool validateStudent(const Student& s)
+{
+	return true;
+}
+
+int main()
+{
+	Student plato;
+	bool platoIsOk = validateStudent(plato);
+	return 0;
+}

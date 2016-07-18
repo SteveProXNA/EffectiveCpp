@@ -1,0 +1,281 @@
+47 Item47
+20-Feb-2014
+
+
+Item 47: Use traits classes for information about types
+
+
+STL iterator categories
+5x categories of iterators
+
+
+01.
+Input iterators
+move only forward
+move only one step at a time
+can only read what they point to
+can only read what they point to once
+e.g. istream_iterators 
+
+
+02.
+Input iterators
+move only forward
+move only one step at a time
+can only write what they point to
+can only write what they point to once
+e.g. ostream_iterators 
+
+
+03.
+forward iterators
+everything input/output iterators
+plus read or write what they point to more than once
+e.g. slist
+
+
+04.
+Bidirectional iterators
+add to forward iterators
+plus ability to move backward as well as forward
+e.g. set, multiset, map, multimap
+
+
+05.
+random access iterators
+bidirectional iterators the ability to perform "iterator arithmetic"
+i.e. jump forward or backward an arbitrary distance in constant time
+analogous to pointer arithmetic => modeled on built-in pointers
+e.g. vector, deque, and string 
+
+
+Each iterator category has a "tag struct"
+
+struct input_iterator_tag {};
+struct output_iterator_tag {};
+struct forward_iterator_tag : public input_iterator_tag {};
+struct bidirectional_iterator_tag : public forward_iterator_tag {};
+struct random_access_iterator_tag : public bidirectional_iterator_tag {};
+
+
+EXAMPLE
+advance STL utility template to move a specified iterator a specified distance
+
+
+template<typename IterT, typename DistT>
+void advance(IterT& iter, DistT d)
+{
+  if (iter is a random access iterator)
+  {
+     iter += d;                                      
+  }                                                  
+  else
+  {
+    if (d >= 0) 
+    {
+      while (d--) ++iter;
+    }              
+    else
+    {
+      while (d++) --iter;
+    }                     
+  }                                                  
+}
+
+
+Must determine whether iter is a random access iterator - must know whether type IterT is random access iterator type
+i.e. need to get some information about a type
+
+
+TRAITS
+Allow you to get information about a type during compilation
+
+
+Traits are a technique and convention followed by C++ programmers
+Must work as well for built-in types as for user-defined types
+
+
+Therefore, cannot nest information inside built-in types as cannot nest information inside pointers
+Traits information for a type must be external to the type
+
+Standard technique is to put into a template one or more specializations of that template
+For iterators, the template in the standard library is named iterator_traits
+
+template<typename IterT>          
+struct iterator_traits;           
+
+
+iterator_traits is a struct = that's by convention
+the structs used to implement traits are known as traits classes
+
+
+EXAMPLES
+iterator_traits requires any user-defined iterator type must contain a nested typedef named iterator_category
+that identifiers the appropriate tag struct
+
+
+01.
+deque
+iterators are random access
+
+
+template<...>
+class deque
+{
+public:
+  class iterator
+  {
+    public:
+      typedef random_access_iterator_tag iterator_category;
+  };
+};
+
+
+02.
+list
+iterators are bidirectional
+
+
+template<...>
+class list
+{
+public:
+  class iterator
+  {
+    public:
+      typedef bidirectional_iterator_tag iterator_category;
+  };
+};
+
+
+iterator_traits just parrots back the iterator class nested typedef
+
+template<typename IterT>
+struct iterator_traits
+{
+  typedef typename IterT::iterator_category iterator_category;
+};
+
+
+This works well for user-defined types but doesn't work at all for iterators that are pointers:
+there's no such thing as a pointer with a nested typedef
+
+
+Second part of iterator_traits implementation handles iterators that are pointers
+iterator_traits offers a partial template specialization for pointer types
+
+Pointers act as random access iterators so that's the category iterator_traits specifies for them:
+
+
+template<typname IterT>
+struct iterator_traits<IterT*>
+{
+  typedef random_access_iterator_tag iterator_category;
+};
+
+
+SUMMARY
+Design and implement a traits class
+
+* Identify some information about types you'd like to make available (e.g., for iterators, their iterator category)
+* Choose a name to identify that information (e.g. iterator category)
+* Provide a template and set of specializations (e.g. iterator_traits) that contain the information for the types to support
+
+
+advance
+template<typename IterT, typename DistT>
+void advance(IterT& iter, DistT d)
+{
+  if (typeid(typename std::iterator_traits<IterT>::iterator_category == typeid(std::random_access_iterator_tag))
+  {
+  }
+}
+
+
+However, not what we want: compilation problems (Item48)
+IterT known during compilation so iterator_traits<IterT>::iterator_category determined during compilation
+
+Yet if statement is evaluated at runtime - why postpone til runtime when can be done at compile time (bloats executable)
+Want conditional construct for types evaluated during compilation - get this behavior thru overloading
+
+
+Create 2x versions of an overloaded function containing the "guts" of advance
+declaring each to take a different type of iterator_category object
+
+
+template<typename IterT, typename DistT>
+void doAdvance(IterT& iter, DistT d, std::random_access_iterator_tag)
+{
+  iter += d;
+}
+
+
+template<typename IterT, typename DistT>
+void doAdvance(IterT& iter, DistT d, std::bidirectional_iterator_tag)
+{
+  if (d >= 0)
+  {
+    while (d--)
+    {
+      ++iter;
+    }
+  }
+  else
+  {
+    while (d++)
+    {
+      --iter;
+    }
+  }
+}
+
+
+template<typename IterT, typename DistT>
+void doAdvance(IterT& iter, DistT d, std::input_iterator_tag)
+{
+  if (d < 0)
+  {
+    throw std::out_of_range("Negative distance");
+  }
+
+  while (d--)
+  {
+    ++iter;
+  }
+}
+
+
+Given the various overloads for doAdvance, all advance needs to do is call them passing the appropriate iterator category type
+
+
+template<typename IterT, typename DistT>
+void advance(IterT& iter, DistT d)
+{
+  do Advance(iter, d, typename std::iterator_traits<IterT>::iterator_category());
+}
+
+
+SUMMARY
+* Create a set of overloaded "worker" functions or function templates (e.g. doAdvance) that differ in traits parameter
+  Implemented each function in accord with the traits information passed
+
+* Create a "master" function or function template (e.g. advance) that calls the workers, passing information provided
+  by a traits class
+
+
+Finally, traits are widely used in the standard library
+value_type
+char_traits
+numeric_limits
+
+TR1 (Item54) introduces many new traits classes that give information about types
+is_fundamental<T>	whether T is a built-in type
+is_array<T>		whether T is an array type
+is_base_of<T1, T2>	whether T1 is the same or base of T2
+
+
+REMEMBER
+* Traits classes make information about types available during compilation
+  They're implemented using templates and template specializations
+
+* In conjunction with overloading, traits classes make it possible to perform compile-time if... else tests on types

@@ -1,0 +1,57 @@
+#pragma once
+
+#include <string>
+
+class CompanyZ
+{
+public:
+	void sendEncrypted(const std::string& msg) {}
+};
+
+
+class MsgInfo {};
+
+
+// http://stackoverflow.com/questions/5510922/template-class-specialization
+template<typename T>
+class MsgSender
+{
+};
+
+
+template<>
+class MsgSender<CompanyZ>
+{
+public:
+	void sendSecret(const MsgInfo& info)
+	{
+	}
+};
+
+
+template<typename Company>
+class LoggingMsgSender : public MsgSender<Company>
+{
+public:
+
+	void sendClearMsg(const MsgInfo& info)
+	{
+		this->sendClear(info);
+	}
+};
+
+
+#pragma once
+
+#include "Company2.h"
+
+int main()
+{
+	MsgInfo info;
+	LoggingMsgSender<CompanyZ> log;
+
+	//error C2039: 'sendClearMsg' : is not a member of 'LoggingMsgSender<Company>'
+	//log.sendClearMsg(info);
+
+	return 0;
+}

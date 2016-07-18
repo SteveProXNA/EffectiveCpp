@@ -1,0 +1,67 @@
+#pragma once
+
+class Date;
+class Address;
+
+class Person3
+{
+public:
+	Person3() {}
+	Person3(const std::string& name, const Date& birthday, const Address& addr);
+	virtual ~Person3() {}
+	
+	virtual std::string name() const = 0;
+	virtual std::string birthDate() const = 0;
+	virtual std::string address() const = 0;
+};
+
+
+#include <memory>
+#include <string>
+#include "Person3.h"
+#include "Date.h"
+#include "Address.h"
+
+class RealPerson3 : public Person3
+{
+public:
+	RealPerson3() {}
+	RealPerson3(const std::string& name, const Date& birthday, const Address& addr) :
+		theName(name), theBirthDate(birthday), theAddress(addr)
+	{
+	}
+	
+	virtual ~RealPerson3() {}
+
+	static std::tr1::shared_ptr<Person3> create(const std::string& name, const Date& birthday, const Address& addr)
+	{
+		return std::tr1::shared_ptr<Person3>(new RealPerson3(name, birthday, addr));
+	}
+
+	std::string name() const		{ return theName; }
+	std::string birthDate() const	{ return "date"; }
+	std::string address() const		{ return "addr"; }
+
+private:
+	std::string theName;
+	Date theBirthDate;
+	Address theAddress;
+};
+
+
+#include <memory>
+#include <string>
+#include "Person3.h"
+#include "RealPerson3.h"
+#include "Date.h"
+#include "Address.h"
+
+int main()
+{
+	std::string n = "hello";
+	Date d;
+	Address a;
+
+	std::tr1::shared_ptr<Person3> pp(RealPerson3::create(n, d, a));
+	return 0;
+}

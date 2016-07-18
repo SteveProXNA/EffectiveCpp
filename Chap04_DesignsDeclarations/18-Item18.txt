@@ -1,0 +1,250 @@
+18 Item18
+28-Nov-2013
+
+
+Item 18: Make interfaces easy to use correctly and hard to use incorrectly 
+
+
+If clients use your interface incorrectly then your interface is partially to blame:
+
+If an attempted use of an interface won't do what the clients expects then the code won't compile
+If the code does compile then it will do what the client wants
+
+
+In order to achieve this you must consider the kinds of mistakes that clients may make
+
+e.g.
+Design the constructor for a class representing dates in time:
+
+
+class Date
+{
+public:
+	Date(int month, int day, int year);
+};
+
+
+2x ERRORS clients may make
+
+01.
+Pass parameters in the wrong order
+Date d(30, 3, 1995);		// should be "3, 30" NOT "30, 3"
+
+02.
+May pass invalid month or day number
+Date d(2, 20, 1995);		// should be "3, 30" NOT "2, 20"
+
+
+INTRODUCTION new types
+Type system is primary ally in preventing undesirable code from compiling
+
+
+struct Day
+{
+explicit Day(int d) : val(d) {}
+int val;
+};
+
+struct Month
+{
+explicit Month(int m) : val(m) {}
+int val;
+};
+
+struct Year
+{
+explicit Year(int y) : val(y) {}
+int val;
+};
+
+class Date
+{
+ public:
+	Date(const Month& m, const Day& d, const Year& y) :
+	   month(m.val), day(d.val), year(y.val)
+	{
+	}
+
+private:
+	int month, day, year;
+};
+
+
+IMPLEMENTATION
+Date d(30, 3, 1995);                      // error! wrong types
+Date d(Day(30), Month(3), Year(1995));    // error! wrong types
+Date d(Month(3), Day(30), Year(1995));    // okay, types are correct
+
+
+Judicious introduction of new types can work wonders for the prevention of interface usage errors
+
+
+This works but safer solution is to predefine the set of all valid months
+
+
+
+
+class Month
+{
+public:
+	static Month Jan() { return Month(1); }
+	static Month Feb() { return Month(2); }
+	static Month Mar() { return Month(3); }
+	...
+	Month() {}
+
+private:
+	explicit Month(int m) : val(m)
+	{
+	}
+
+	int val;
+};
+
+
+Item4 remember that reliable initialization of non-local (instance) static objects can be problematic
+
+
+Another way to prevent client errors is to restrict what can be done with a type:
+Common way to impose restrictions is to add const
+
+e.g.
+Item3 explains how const-qualifying the return type from operator* can prevent clients from user-define type errors:
+
+// oops meant to do comparison!
+if (a * b = c)
+
+
+Continue: have your types behave consistently with the built-in types
+Clients know how types like int behave so you should strive to have your types behave the same way where reasonable
+
+e.g.
+assignment to a * b isn't legal if a and b are ints so unless there's good reason to diverge from this behavior
+then it should be illegal for your types too
+
+
+RULE
+When in doubt, do as the ints do!
+
+
+CONSISTENCY
+Avoid gratuitous incompatibilities with the built-in types is to offer interfaces that behave consistently
+
+Few characteristics that are easy to use correctly as much as consistency and
+few characteristics lead to aggravating interfaces as much as inconsistency
+
+Why?
+Inconsistency impose mental friction into a developer's work
+
+Any interface that requires clients remember to do something is prone to incorrect use
+because clients can forget to do it!
+
+e.g.
+Item13
+factory function that returns pointers to dynamically allocated objects in an Investment hierarchy
+
+Investment* createInvestment();
+
+
+To avoid resource leaks, the pointers returned from createInvestment() must eventually be deleted
+but that creates an opportunity for at least two types of client errors:
+
+01.
+failure to delete a pointer
+
+02.
+deletion of the same pointer more than once
+
+
+Item13
+shows how clients can store createInvestment() return value in a smart pointer like
+auto_ptr or tr1::shared_ptr
+
+Turn over the responsibility to the smart pointer for using delete
+
+
+But what if clients forget to use a smart pointer?
+A better interface would be to preempt the problem by having the factory function return a smart pointer instead
+
+std::tr1::shared_ptr<Investment> createInvestment();
+
+
+This forces clients to store the return value in tr1::shared_ptr, all but eliminating the possibility
+of forgetting to delete the underlying Investment object when it's no longer being used
+
+
+Returning tr1::shared_ptr also makes it possible for an interface designer to prevent a host of other client errors
+e.g. tr1::shared_ptr allows a resource-release function - a "deleter" bound to the smart pointer
+
+
+NOTE: could not get this to work
+error C2197: 'void (__cdecl *)(void)' : too many arguments for call
+
+
+
+#include <memory>
+#include "Investment.h"
+
+void getRidOfInvestment()
+{
+}
+
+std::tr1::shared_ptr<Investment> createInvestment()
+{
+	std::tr1::shared_ptr<Investment> retVal(static_cast<Investment*>(0), getRidOfInvestment);
+	return retVal;
+}
+
+int main()
+{
+	std::tr1::shared_ptr<Investment> pInv = createInvestment();
+	return 0;
+}
+
+
+NOTE
+std::tr1::shared_ptr<Investment> retVal(static_cast<Investment*>(0), getRidOfInvestment);
+
+My version of C++ did not have an overload for shared_ptr constructor to take 2x input parameters
+However, the first parameter insists on being a pointer and 0 is not a pointer
+
+It's a convertible to a pointer but that's not good enough as tr1::shared_ptr insists on an actual pointer
+A cast solves this problem
+
+std::tr1::shared_ptr<Investment> retVal(static_cast<Investment*>(0), ...);
+
+
+Cross DLL
+tr1::shared_ptr uses per-pointer deleter to eliminate another potential client error:
+the "cross DLL problem"
+
+Problem: object created using new in one dynamically linked library (DLL)
+but is deleted in a different DLL... errors!
+
+tr1::shared_ptr avoids the problem because its default deleter uses delete from the same DLL
+where the tr1::shared_ptr is created
+
+
+SUMMARY
+tr1::shared_ptr is an easy way to eliminate some client errors but evaluate the cost of using it!
+
+- twice the size of a raw pointer
+- uses dynamically allocated memory for bookkeeping and deleter-specific data
+- uses a virtual function call when invoking its deleter
+- incurs thread synchronization overhead when modifying the reference count in multithreaded application
+
+In short, it's bigger than a raw pointer, slower than a raw pointer and uses auxiliary dynamic memory
+Sometimes these additional runtime costs will be unnoticeable but reduction in client errors apparent to all!
+
+
+REMEMBER
+* Good interfaces are easy to use correctly and hard to use incorrectly.
+  You should strive for these characteristics in all your interfaces
+
+* Ways to facilitate correct use include consistency in the interfaces and behavioral compatibility with built-in types
+
+* Ways to prevent errors include creating new types, restricting operations on types, constraining object values
+  and eliminating client resource management responsibilities
+
+* tr1::shared_ptr supports custom deleters.  This prevents cross DLL problems and can be used 
+  to automatically unlock mutexes

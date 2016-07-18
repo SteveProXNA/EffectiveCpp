@@ -1,0 +1,26 @@
+#pragma once
+
+class Widget
+{
+};
+
+
+#pragma once
+
+#include <new>
+#include "Widget.h"
+
+// normal signature at globabl scope.
+void* operator new(std::size_t) throw(std::bad_alloc);
+void operator delete(void* rawMemory) throw();
+
+// typical normal signature at class scope
+void operator delete(void* rawMemory, std::size_t size) throw();
+
+int main()
+{
+	Widget* pw = new Widget;
+	delete pw;
+
+	return 0;
+}

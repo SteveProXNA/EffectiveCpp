@@ -1,0 +1,206 @@
+21 Item21
+02-Dec-2013
+
+
+Item 21: Don't try to return a reference when you must return an object 
+
+
+Pass by reference const is usually more efficient to pass by value
+But don't make fatal mistake: pass reference to objects that don't exist!
+
+
+class Rational
+{
+public:
+  Rational(int numerator = 0, int denominator = 1) :
+    n(numerator), d(denominator)
+  {
+  }
+
+
+private:
+  int n, d;                                 // numerator and denominator
+
+  friend inline const Rational operator*(const Rational& lhs, const Rational& rhs)
+  {
+	Rational result(lhs.n * rhs.n, lhs.d * rhs.d);
+	return result;
+  }
+};
+
+
+Note: during this Item used "friend" for non-member style operator functions
+as "normal" operator take 1x parameter: const Rational& rhs
+
+
+operator* returns result object by value so what is cost of that object construction / destruction?
+Don't want to pay if don't have to: do you have to pay?
+
+
+Don't have to pay if you return a reference.  But reference is just a name (alias) for some existing object
+
+When you see reference you should immediately ask yourself what it is another name for?
+Because it MUST be another name for something!
+
+
+For operator*, if function returns reference then it must reference some Rational object that already exists
+and that contains the product of the 2x objects multiplied together
+
+
+EXAMPLE
+Rational a(1, 2);                        // a = 1/2
+Rational b(3, 5);                        // b = 3/5
+Rational c = a * b;                      // c should be 3/10
+
+
+It seems unreasonable to expect that already exists a rational number three tenths
+No, if operator* is to return a reference to such a number then it must create that number itself
+
+
+A function can create new object 2x ways: on the stack and on the heap
+
+
+Stack
+Creation on the stack accomplished by defining a local variable:
+
+Bad code #1
+friend const Rational& operator*(const Rational& lhs, const Rational& rhs)
+{
+	Rational result(lhs.n * rhs.n, lhs.d * rhs.d);
+	return result;
+}
+
+
+Reject: goal was to avoid constructor and result has to be constructed just like any other object
+
+More serious problem is this function returns reference to result but result is a local object;
+all local objects are destroyed when the function exits!
+
+
+This version of operator* doesn't return reference to Rational but reference to an ex-Rational:
+the empty rotting carcass of what USED to be a Rational object but no longer as it's been destroyed!
+
+Therefore: undefined behavior
+
+
+FACT
+Any function returning reference to a local object is broken
+(true for any function returning pointer to a local object)
+
+
+
+Heap
+Construct object on the heap and return reference to it
+Heap-based objects come into being by using "new" so may write heap-based operator* like this:
+
+Bad code #2
+friend const Rational& operator*(const Rational& lhs, const Rational& rhs)
+{
+	Rational* result = new Rational(lhs.n * rhs.n, lhs.d * rhs.d);
+	return *result;
+}
+
+
+Still have to pay for constructor because memory allocated by new initialized by calling appropriate ctor
+Bigger problem: who will apply delete to object from use of new
+
+Even if clients call "delete" then there is nothing to prevent memory leaks:
+
+// same as operator*(operator*(x, y), z)
+Rational w, x, y, z;
+w = x * y * z;                     
+
+
+Here: 2x calls to new that must be undone with delete but no reasonable way to get at the pointers
+hidden behind the references being returned from calls to operator*.  Guaranteed resource leak!
+
+
+Static
+Initial goal was to avoid such constructor invocations but maybe one constructor call is ok
+Choose implementation based on operator* return reference to a static Rational object (defined in function)
+
+Bad code #3
+friend const Rational& operator*(const Rational& lhs, const Rational& rhs)
+{
+	static Rational result;
+	return result;
+}
+
+
+Local static object raises thread safety issues but there is more obvious weakness
+Flaw in code exposed by this:
+
+friend bool operator==(const Rational& lhs, const Rational& rhs)
+{
+	return (lhs.n == rhs.n && lhs.d == rhs.d);
+} 
+
+
+Rational a, b, c, d;
+if ((a * b) == (c * d))
+{
+    do whatever's appropriate when the products are equal;
+}
+else
+{
+   do whatever's appropriate when they're not;
+}
+
+
+However, if ((a * b) == (c * d)) will ALWAYS evaluate to true, regardless of values of a, b, c, d!
+Revelation easiest to understand when the code is rewritten in its equivalent functional form
+
+if (operator==(operator*(a,b), operator*(c,d)))
+{
+}
+
+
+When operator== (equality) is called, there will be 2x active calls to operator*
+each of which return reference to the static Rational object inside operator*
+
+operator== asked to compare value of the static Rational object inside operator*
+with the value of the static Rational object inside operator*
+
+There is only one static Rational object so it would be surprising indeed if they did not compare equal
+Always!
+
+
+Static array...
+
+
+SOLUTION
+The right to write a function that must return a new object is to have that function return a new object
+For Rational operator* that means the following code:
+
+good code
+friend inline const Rational operator*(const Rational& lhs, const Rational& rhs)
+{
+	Rational result(lhs.n * rhs.n, lhs.d * rhs.d);
+	return result;
+}
+
+
+Sure, you may incur cost of constructing and destructing operator* return value
+But that is small price to pay for correct behavior in the long run
+
+
+Also, cost may never arise: C++ allows compiler implementers to apply optimizations to improve
+the performance of the generated code without changing its observable behavior
+
+In some cases, construction and destruction of operator* return value can safely be eliminated
+When compilers take advantage of that fact (often do) then program continues to behave way it's supposed to
+
+just faster than you expected
+
+
+SUMMARY
+When deciding between returning a reference and returning an object, choose option that offers correct behavior
+Let your compiler vendors wrestle with figuring out how to make that choice as inexpensive as possible
+
+
+REMEMBER
+* Never return a pointer or reference to a local stack object, a reference to a heap-allocated object, or a
+  pointer or reference to a local static object if there is a chance that more than one object is needed
+
+* Item4 provides example of design where returning a reference to a local static object is reasonable
+  at least in a single-threaded environment)

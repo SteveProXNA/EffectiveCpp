@@ -1,0 +1,61 @@
+09/11/2013
+
+#ifndef _FILESYSTEM2_
+#define _FILESYSTEM2_
+
+#include <string>
+
+class FileSystem2
+{
+public:
+	std::size_t numDisks() const
+	{
+		return 5;
+	}
+};
+
+#endif//_FILESYSTEM2_
+
+
+// This replaces the tfs object
+FileSystem2& tfs()
+{
+	static FileSystem2 fs;
+	return fs;
+}
+
+
+#ifndef _DIRECTORY2_
+#define _DIRECTORY2_
+
+#include <string>
+#include "FileSystem2.h"
+
+class Directory2
+{
+public:
+
+	Directory2()
+	{
+		std::size_t disks = tfs().numDisks();
+	}
+};
+
+#endif//_DIRECTORY2_
+
+
+Directory2& tempDir()
+{
+	static Directory2 td;
+	return td;
+}
+
+
+#include "Directory2.h"
+
+int main()
+{
+	Directory2 dir;
+
+	return 0;
+}

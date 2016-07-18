@@ -1,0 +1,31 @@
+#pragma once
+
+namespace stevepro
+{
+	// typical implementation of std::swap
+	template<typename T>
+	void swapper(T& a, T& b)
+	{
+		T temp(a);
+		a = b;
+		b = temp;
+	}
+}
+
+
+#pragma once
+
+#include <algorithm>
+#include "SteveSwap.h"
+
+int main()
+{
+	int a = 10;
+	int b = 20;
+
+	// http://www.cplusplus.com/reference/algorithm/swap/
+	std::swap(a,b);
+
+	stevepro::swapper(a, b);
+	return 0;
+}

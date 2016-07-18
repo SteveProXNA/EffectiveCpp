@@ -1,0 +1,174 @@
+44 Item44
+18-Feb-2014
+
+
+Item 44: Factor parameter-independent code out of templates
+
+
+Templates can save time and avoid code replication but if you're not careful using templates can lead to code bloat:
+binaries with replicated code, data or both
+
+
+Result: source code that looks fit and trim yet object code that's fat and flabby
+
+
+TOOL
+Commonality and variability analysis
+
+
+Write function: extract common code into one function which vary code functions call
+When writing templates it's the same analysis but with a twist
+
+Non-template code, replication is explicit: you can see duplication between 2x functions (or classes)
+Template code is implicit: there's only one copy of the template source code that may be instantiated multiple times
+
+
+e.g.
+template<typename T, std::size_t n>
+class SquareMatrix
+{
+public:
+
+  void invert();              
+
+};
+
+
+Template takes type T but also size_t (non-template parameter)
+Non-template parameters are less common than type parameters but legal and natural here
+
+
+SquareMatrix<double, 5> sm1;
+sm1.invert();                  // call SquareMatrix<double, 5>::invert
+
+
+
+SquareMatrix<double, 10> sm2;
+sm2.invert();                  // call SquareMatrix<double, 10>::invert
+
+
+2x copies of invert() will be instantiated here Functions NOT identical
+5x5 and 10x10 matrices = classic way for template-induced code bloat to arise
+
+
+Instinct that only difference is size
+Instead of replicating the code you just pass size as input parameter
+
+
+template<typename T>
+class SquareMatrixBase
+{
+protected:
+  void invert(std::size_t matrixSize);
+};
+
+
+template<typename T, std::size_t n>
+class SquareMatrix: private SquareMatrixBase<T>
+{
+private:
+  using SquareMatrixBase<T>::invert;   
+
+public:
+  void invert() { this->invert(n); }   
+};
+
+
+Parameterized version of invert() is in base lass
+SquareMatrixBase is templatized only on the type of objects in the matrix, not the size of the matrix
+
+All matrices will share a single base class and single copy of the class version of invert()
+NB: Item43 specifies the this->invert(n); so is not hidden from derived class
+
+Inheritance is private which accurately reflects the fact that the reason:
+base class is to facilitate derived classes' implementation NOT express conceptual is-a relationship (Item39 private inheritance)
+
+
+QUESTION
+How does invert() know what data to operate on?
+Only derived class knows that; how does derived class communicate to base class?
+
+
+Option: add another parameter to point to beginning of chunk of memory with matrix data in it
+Alternative is to have SquareMatrixBase store pointer to the memory for the matrix values
+
+
+template<typename T>
+class SquareMatrixBase
+{
+
+protected:
+
+  SquareMatrixBase(std::size_t n, T *pMem) : size(n), pData(pMem) {}                    
+  void setDataPtr(T *ptr) { pData = ptr; }
+
+private:
+  std::size_t size;
+  T *pData;
+};
+
+
+and let derived class decide how to allocate the memory
+
+template<typename T, std::size_t n>
+class SquareMatrix: private SquareMatrixBase<T>
+{
+public:
+  SquareMatrix() : SquareMatrixBase<T>(n, data) {}          
+
+
+private:
+  T data[n*n];
+};
+
+
+Here no need for dynamic memory allocation but objects themselves could be large
+Alternative: put data for each matrix on the heap
+
+
+template<typename T, std::size_t n>
+class SquareMatrix: private SquareMatrixBase<T>
+{
+public:
+  SquareMatrix() : SquareMatrixBase<T>(n, 0), pData(new T[n*n])
+  {
+    this->setDataPtr(pData.get());
+  }     
+
+private:
+  boost::scoped_array<T> pData;           
+};
+
+
+Regardless of where data is stored, the key result from bloat p.o.v is that Matrix member functions can be inline calls to
+base class versions that are shared with all other matrices holding the same type of data regardless of size
+
+
+SUMMARY
+Version of invert() w/ matrix size hardwired generate better code than the shared version (size passed as single parameter)
+
+
+Item discussed bloat due to non-type template parameters but type parameters can lead to bloat too
+
+e.g.
+int and long have same binary representation, would be identical and definition of bloat
+
+
+Similarly, all pointer types have same binary representation so templates holding pointer types (e.g. list<int*>
+should be able to use single underlying implementation for each member function
+
+Typically means implementing member functions that work with strongly type pointers (T* pointers) call functions
+that work with untyped pointers (void* pointers) 
+
+C++ STL does this for templates - if you're concerned about code bloat then you'll want your templates to do the same
+
+
+REMEMBER
+* Templates generate multiple classes and multiple functions, so any template code not dependent on a template
+  parameter causes bloat
+
+* Boat due to non-type template parameters can often be eliminated by replacing template parameters with function
+  parameters or class data members
+
+* Bloat due to type parameters can be reduced by sharing implementations for instantiation types with identical
+  binary representations

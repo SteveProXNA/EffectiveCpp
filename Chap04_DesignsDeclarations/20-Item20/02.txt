@@ -1,0 +1,58 @@
+#pragma once
+
+#include <iostream>
+#include <string>
+
+class Window
+{
+public:
+	std::string name() const { return "WINDOW"; }
+	virtual void display() const
+	{
+		std::cout << "Display: window" << std::endl;
+	}
+};
+
+
+#pragma once
+
+#include <iostream>
+#include "Window.h"
+
+class WindowWithScrollBars : public Window
+{
+public:
+	void display() const
+	{
+		std::cout << "Display: window with scroll bars" << std::endl;
+	}
+};
+
+
+#pragma once
+
+#include <iostream>
+#include "Window.h"
+#include "WindowWithScrollBars.h"
+
+//void printNameAndDisplay(Window w)
+//{
+//	std::cout << w.name() << std::endl;
+//	w.display();
+//}
+
+void printNameAndDisplay(const Window& w)
+{
+	std::cout << w.name() << std::endl;
+	w.display();
+}
+
+int main()
+{
+	Window w;
+	printNameAndDisplay(w);
+
+	WindowWithScrollBars wwsb;
+	printNameAndDisplay(wwsb);
+	return 0;
+}

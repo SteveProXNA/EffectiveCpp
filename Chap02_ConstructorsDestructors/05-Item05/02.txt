@@ -1,0 +1,43 @@
+09/11/2013
+
+#include <string>
+
+template<typename T>
+class NamedObject
+{
+public:
+	NamedObject(const char* name, const T& value);
+	NamedObject(std::string& name, const T& value);
+
+private:
+	std::string nameValue;
+	T objectValue;
+};
+
+template<typename T>
+NamedObject<T>::NamedObject(const char* name, const T& value) :
+	nameValue(name),
+	objectValue(value)
+{
+}
+
+template<typename T>
+NamedObject<T>::NamedObject(std::string& name, const T& value) :
+	nameValue(name),
+	objectValue(value)
+{
+}
+
+
+#include <string>
+#include "NamedObject.h"
+
+int main()
+{
+	NamedObject<int> no1("Smallest Prime Number", 2);
+	NamedObject<int> no2(no1);		// calls copy constructor.
+
+	std::string name = "Smallest Prime Number";
+	NamedObject<int> no3(name, 2);
+	return 0;
+}

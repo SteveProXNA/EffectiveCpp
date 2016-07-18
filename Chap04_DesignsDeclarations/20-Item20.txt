@@ -1,0 +1,174 @@
+20 Item20
+29-Nov-2013
+
+
+Item 20: Prefer pass-by-reference-to-const to pass-by-value
+
+
+By default, C++ passes objects to and from functions by value - a characteristic from C)
+
+Unless you say otherwise, function parameters are initialized with COPIES of actual args
+And function callers get back a copy of the value returned by the function
+
+
+Copies are produced by objects' copy constructors
+Therefore pass by value can be expensive
+
+
+EXAMPLE
+class Person
+{
+public:
+	Person() : name("AAAA"), addr("BBBB") {}
+	virtual ~Person() {}
+
+private:
+	std::string name;
+	std::string addr;
+};
+
+class Student : public Person
+{
+public:
+	Student() : schoolName("CCCC"), schoolAddr("DDDD") {}
+	~Student() {}
+
+private:
+	std::string schoolName;
+	std::string schoolAddr;
+};
+
+
+
+bool validateStudent(Student s);           // function taking a Student by value
+Student plato;                             // Plato studied under Socrates
+bool platoIsOK = validateStudent(plato);   // call the function
+
+
+When validateStudent function called there is Student copy constructor for "s" input
+and destructor when function goes out of scope
+
+
+Student inherits from Person and each class has 2x strings = 
+6x constructors
+6x destructors
+
+Student, Person, 2x strings for Student, 2x strings for Person
+
+
+QUESTION
+Above is correct and desirable behavior; you want all objects reliably initialized / destroyed
+But is there a way to bypass all those constructions and destructions?  YES
+
+Pass by reference to const
+bool validateStudent(const Student& s);
+
+
+More efficient: no constructors or destructors are called because no new objects are created
+const is important because callers would have to worry about function making changes to Student
+
+
+Passing parameters by reference avoids the SLICING problem:
+When derived class pass by value as base class object to function then
+the base class copy constructor is called
+
+All specialized features that make object behave like derived class are "sliced" off;
+You are left with a simple base class object - no surprise since base class copy ctor created it
+
+This is almost never what you want!
+
+e.g.
+class window
+
+
+class Window
+{
+public:
+	std::string name() const { return "WINDOW"; }
+	virtual void display() const
+	{
+		std::cout << "Display: window" << std::endl;
+	}
+};
+
+class WindowWithScrollBars : public Window
+{
+public:
+	void display() const
+	{
+		std::cout << "Display: window with scroll bars" << std::endl;
+	}
+};
+
+
+void printNameAndDisplay(Window w);
+
+Window w;
+printNameAndDisplay(w);
+
+WindowWithScrollBars wwsb;
+printNameAndDisplay(wwsb);
+
+Both statements will print the same information!!
+
+
+The input parameter to the function "w" is passed by value as a WINDOW object
+All the specialized WWSB info will be sliced off
+
+printNameAndDisplay() will always act like an object of class Window
+because it IS an object of class Window regardless of type of object passed to function
+
+
+SOLUTION
+Pass w by reference const
+void printNameAndDisplay(const Window& w)
+
+Now w will act like whatever kind of window is actually passed in.
+
+
+INFO
+C++ compiler, references typically implemented as pointers so
+passing by reference really means passing a pointer
+
+Object of built-in type (e.g. int) is often more efficient to pass by value
+Therefore, usually pass by value for built-in types (over pass by reference const)
+
+Same applies to iterators and function objects in the STL because
+they are designed to be passed by value
+
+NB: Implementers of iterators and function objects are responsible for seeing that
+they are efficient to copy and not subject to the slicing problem
+
+
+Many objects - most STL containers - contain little more than a pointer but
+copying such objects entails copying everything they point to = can be very expensive
+
+
+Even if small objects have inexpensive copy constructors there can be performance issues:
+Compilers treat built-in and user-defined types differently, even if have underlying rep
+
+e.g.
+Some compilers refuse to put objects consisting of only a double into a register
+even though they happily place naked doubles there on a regular basis
+
+When that happens you can be better off passing such objects by reference because
+compilers will certainly put pointers (the implementations of references) into registers
+
+
+Another reason why small user-defined types not good pass by value candidates because
+their size is subject to change - small now but can get bigger in future as impl changes
+
+Things can even change when you switch to a different C++ implementation;
+some STL implementation are 7x as big as others
+
+
+In general, only types assume pass by value is inexpensive is built-in types and
+STL iterator and function object types.  Everything else use pass by reference const
+
+
+REMEMBER
+* Prefer pass by reference to const over pass by value.  It's typically more efficient
+  and it avoids the slicing problem
+
+* The rule doesn't apply to built in types and STL iterators and function object types.
+  For them, pass by value is usually appropriate

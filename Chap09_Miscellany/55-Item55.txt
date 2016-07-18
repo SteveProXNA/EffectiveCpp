@@ -1,0 +1,53 @@
+55 Item55
+31-Mar-2014
+
+
+Item.55: Familiarize yourself with Boost
+
+
+Boost is community of C++ developers and a collection of freely downloadable C++ libraries
+http://boost.org
+
+
+01.
+Boost has uniquely close and influential relationship with the C++ standardization committee
+
+
+02.
+Boost acceptance for accepting libraries is based on public peer review
+
+
+All boost libraries must compile under at least two compilers (to demonstrate portability)
+and must attest that the library can be made available under an acceptable licence (free)
+
+
+Peer review questions:
+- How good are the design and implementation?
+- Is the code portable across compilers and operating systems?
+- Is the library likely to be of use to its target audience, i.e., people working in the domain the library addresses?
+- Is the documentation clear, complete, and accurate?
+
+
+Peer reviews do good job of keeping poorly written libraries out of Boost
+Also educate library authors in design + documentation of industrial-strength cross-platform libraries
+
+
+Boost libraries call into categories:
+- String and text processing
+- Containers
+- Function objects and higher-order programming
+- Generic programming
+- Template metaprogrammingg (TMP)
+- Math and numerics
+- Correctness and testing
+- Data structures
+- Inter-language support
+- Memory
+- Miscellaneous
+
+
+REMEMBER
+* Boost is a community and web site for the development of free, open source, peer-reviewed C++ libraries
+  Boost plays an influential role in C++ standardization
+
+* Boost offers implementations of many TR1 components but it also offers many other libraries too

@@ -1,0 +1,24 @@
+// THIS
+class Empty {};
+
+// BECOMES
+//class Empty
+//{
+//public:
+//	Empty() {}
+//	Empty(const Empty& rhs) {}
+//	~Empty() {}
+//	Empty& operator=(const Empty& rhs) {}
+//};
+
+
+#include "Empty.h"
+
+int main()
+{
+	Empty e1;		// default constructor and destructor.
+	Empty e2(e1);	// copy constructor.
+	e2 = e1;		// copy assignment operator.
+
+	return 0;
+}

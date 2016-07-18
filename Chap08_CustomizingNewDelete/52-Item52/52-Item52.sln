@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "52-Item52", "52-Item52.vcxproj", "{EA6B2782-B82C-4DD4-A248-C8A66C329AED}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{EA6B2782-B82C-4DD4-A248-C8A66C329AED}.Debug|Win32.ActiveCfg = Debug|Win32
+		{EA6B2782-B82C-4DD4-A248-C8A66C329AED}.Debug|Win32.Build.0 = Debug|Win32
+		{EA6B2782-B82C-4DD4-A248-C8A66C329AED}.Debug|Win32.Deploy.0 = Debug|Win32
+		{EA6B2782-B82C-4DD4-A248-C8A66C329AED}.Release|Win32.ActiveCfg = Release|Win32
+		{EA6B2782-B82C-4DD4-A248-C8A66C329AED}.Release|Win32.Build.0 = Release|Win32
+		{EA6B2782-B82C-4DD4-A248-C8A66C329AED}.Release|Win32.Deploy.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		VisualSVNWorkingCopyRoot = .
+	EndGlobalSection
+EndGlobal

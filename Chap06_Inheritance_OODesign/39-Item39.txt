@@ -1,0 +1,281 @@
+39 Item39
+20-Dec-2013
+
+
+Item 39: Use private inheritance judiciously 
+
+
+We know public inheritance as an "is-a" relationship
+When compilers see Student publicly inherit from Person they implicitly convert Student to Person objects
+
+
+However, let's look at private inheritance:
+
+class Person { ... };
+class Student : private Person { ... };     // inheritance is now private
+
+
+void eat(const Person& p);                 // anyone can eat
+void study(const Student& s);              // only students study
+
+
+Person p;                                  // p is a Person
+Student s;                                 // s is a Student
+
+
+eat(p);                                    // fine, p is a Person
+eat(s);                                    // error! a Student isn't a Person
+
+
+
+PRIVATE INHERITANCE
+
+01.
+In contrast to public inheritance, compilers will generally NOT convert a derived class object (Student)
+into base class object (Person) when the inheritance relationship between classes is private
+
+That's why eat() fails for Student objects
+
+
+02.
+Members inherited from private base class become private members of the derived class;
+even if they were protected or public in the base class
+
+
+Private inheritance means "is-implemented-in-terms-of
+If class D privately inherits from class B you do so because you are interested in taking advantage
+of some of the features available in class B, not because there is any conceptual relationship btwn objects B and D
+
+
+Private inheritance is purely an implementation technique
+That's why everything you inherit from a private base class becomes private in your class;
+it's just an implementation detail
+
+Using Item34 terms: private inheritance means that implementation ONLY should be inherited;
+(public facing) interface should be ignored
+
+If D privately inherits from B then it means that D objects are implemented in terms of B objects, nothing more
+Private inheritance means nothing during software design, only during software implementation
+
+
+COMPOSITION
+Private inheritance meaning "is-implemented-in-terms-of" can be confusing with composition, which means the same thing
+How are you to choose between them?
+
+Simple:
+use composition whenever you can
+use private inheritance whenever you must
+
+
+When must you?
+Primarily when protected members and/or virtual functions enter the picture
+(although there is an edge case => below)
+
+
+EXAMPLE
+Widgets
+
+Keep track of how many times each member functions is called
+At runtime, examine information with values of each Widget
+
+
+class Timer
+{
+public:
+  explicit Timer(int tickFrequency);
+  virtual void onTick() const;          // automatically called for each tick
+  ...
+};
+
+
+We can redefine the virtual function so it examines the current state of Widgets
+In order for Widget to redefine a virtual function in Timer, Widget must inherit from Timer
+
+But public inheritance is inappropriate: it is not true that a Widget "is-a" Timer
+because clients shouldn't be able to call onTick() on a Widget - it's not conceptual Widget interface
+
+Allowing this function call is violation of Item18 "Make interfaces easy to use correctly, hard to use incorrectly"
+Public inheritance is not an option here
+
+
+Instead, prefer private inheritance
+class Widget: private Timer
+{
+private:
+  virtual void onTick() const;           // look at Widget usage data, etc.
+  ...
+};
+
+
+By virtue of private inheritance, Timer's public onTick() function becomes private in Widget
+And we keep it there when we redeclare it again
+
+Again, putting onTick() in the public interface would mislead Widget clients into thinking they could call it + violate Item18
+
+
+Nice design but worth noting that private inheritance not strictly necessary
+If we used composition instead then we just declare private nested class inside Widget:
+
+publicly inherit from Timer, redefine onTick() there and put an object of that type inside Widget
+
+
+class Widget
+{
+private:
+  class WidgetTimer: public Timer
+  {
+  public:
+    virtual void onTick() const;
+    ...
+  };
+
+   WidgetTimer timer;
+  ...
+};
+
+
+Design is more complicated that using only private inheritance because it involves both (public) inheritance and composition
+Plus introduction of the new class WidgetTimer
+
+Shown to remind there is more than one way to approach a design problem and worthwhile to consider multiple approaches (Item35)
+Therefore, there are 2x reasons why to consider public inheritance plus composition over private inheritance
+
+
+01.
+Might want to design Widget to allow for derived classes but also want to prevent derived classes from redefining onTick()
+If Widget inherits from Timers then that's not possible not even if inheritance is private
+
+Item35 - derived classes may redefine virtual functions even if they are not permitted to call them
+If WidgetTimer is private in Widget and inherits from Timer then Widget derived classes have no access to WidgetTimer
+
+Therefore they cannot inherit or redefine its virtual functions
+
+
+The equivalent in C# you have sealed classes (or Java final classes)
+This is the approximate behavior in C++ to prevent derived classes redefining virtual functions
+
+
+02.
+Want to minimize Widget compilation dependencies (Item31)
+If Widget inherits from Timer then Timer's definition must be available when Widget is compiled
+
+so defining Widget has to #include "Timer.h"
+On the other hand, if WidgetTimer is moved out of Widget and Widget contains only a pointer to WidgetTimer
+
+then Widget can get by with a simple declaration for the WidgetTimer class;
+it need not #include anything to do with "Timer.h"
+
+For larger systems: such decouplings can be important!
+
+
+EDGE CASE
+Private inheritance is useful when a would-be derived class wants access to the protected parts of a would be base class
+or would like to redefine one or more of its virtual functions
+
+But the conceptual relationship between the classes is "is-implemented-in-terms-of" instead of "is-a" relationship
+However, there is an edge case involving space optimization that could nudge to prefer private inheritance over composition
+
+
+Edge case applies only when you're dealing with a class that has no data in it:
+
+Such classes have no non-static data members; no virtual functions (because this adds vptr to each object - Item7)
+and no virtual base classes (because such base classes incur size overhead - Item40)
+
+Conceptually, objects of such empty classes should use no space because there is no per-object data to be stored
+However, technical reasons for C++ decreeing that freestanding objects must have non-zero size
+
+
+e.g. if you do this
+
+// No data so objects should use no memory.
+class Empty
+{
+};
+
+
+
+// Should need only space for an integer
+class HoldsAnInt
+{
+private:
+  int x;
+  Empty e;		// should require no memory
+};
+
+
+
+However, you'll find
+sizeof(HoldsAnInt) > sizeof(int)
+
+
+an Empty data member requires memory!
+
+
+Most compilers, sizeof(Empty) is 1x byte because C++ edict against zero-size freestanding objects
+is typically satisfied by the silent insertion of a char into "empty" objects
+
+
+However, alignment requirements (Item50) may cause compilers to add padding to classes like HoldsAnInt
+so it's likely that HoldsAnInt objects wouldn't gain just the size of a char but enough to hold a second int
+
+
+IMPORTANT
+"freestanding" objects mustn't have zero size
+Constraint doesn't apply to base class parts of derived class objects because they're not freestanding
+
+If you inherit from Empty instead of containing an object of that type:
+
+class HoldsAnInt : private Empty
+{
+private:
+  int x;
+};
+
+
+you're almost guaranteed to find that sizeof(HoldsAnInt) == sizeof(int)
+
+
+EBO
+Empty Base Optimization
+This is implemented by all the compilers tested
+
+
+If you're a library developer whose clients care about space then the EBO is worth knowing about
+Also, the EBO is generally viable only under single inheritance
+
+Rules governing C++ object layout generally mean that the EBO can't be applied to derived classes that have more than one base
+
+
+In practice, "empty" classes are not truly empty
+Though they never have non-static data members, they often contain typedefs, enums, static data members or non-virtual functions
+
+
+STL has many technically empty classes that contain useful members (usually typedefs), including base class
+unary_function and binary_function from which classes for user-defined function objects typically inherit
+
+Thanks to EBO, such inheritance rarely increases the size of the inheriting classes
+
+
+SUMMARY
+Most classes are not empty, so the EBO is rarely a justification for private inheritance
+Furthermore, most inheritance corresponds to "is-a" and that's public inheritance, not private
+
+Both composition and private inheritance mean "is-implemented-in-terms-of" but
+composition is easier to understand, so you should use it whenever you can!
+
+Private inheritance likely a legitimate design strategy when dealing with 2x classes not related by "is-a"
+where one either needs access to the protected members of another or needs to redefine one or more virtual functions
+
+However, public inheritance and containment can often yield the behavior you want albeit with greater design complexity
+
+Using private inheritance judiciously means employing it when having considered all the alternatives,
+it's the best way to express the relationship between 2x classes in your software
+
+
+REMEMBER
+* Private inheritance means "is-implemented-in-terms-of"
+  It's usually inferior to composition but makes sense when a derived class needs access to protected base class members or
+  needs to redefine inherited virtual functions
+
+* Unlike composition, private inheritance can enable the empty base optimization
+  This can be important for library developers who strive to minimize object sizes

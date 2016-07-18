@@ -1,0 +1,41 @@
+#include <string>
+
+class Shape
+{
+public:
+	virtual void draw() = 0 {}
+	virtual void error(const std::string& msg) {}
+	int objectID() const;
+};
+
+class Rectangle : public Shape
+{
+public:
+	void draw() {}
+};
+
+class Ellipse : public Shape
+{
+public:
+	void draw() {}
+};
+
+
+#include "Shape.h"
+
+int main()
+{
+	//Shape* ps = new Shape;		// Error Shape is abstract
+	Shape* ps1 = new Rectangle;		// Fine.
+	ps1->draw();					// Calls Rectangle::draw()
+
+	Shape* ps2 = new Ellipse;		// Fine.
+	ps2->draw();					// Calls Ellipse::draw()
+
+	ps1->Shape::draw();				// Calls Shape::draw()
+	ps2->Shape::draw();				// Calls Shape::draw()
+
+	delete ps2;
+	delete ps1;
+	return 0;
+}

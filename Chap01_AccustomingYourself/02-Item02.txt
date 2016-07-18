@@ -1,0 +1,143 @@
+02 Item02
+05-Nov-2013
+
+
+Item 02: Prefer consts, enums, and inlines to #defines 
+
+
+Prefer compiler to the preprocessor
+
+NO
+#define ASPECT_RATIO 1.653
+
+YES
+const double AspectRatio = 1.653;
+
+
+AspectRatio seen by compilers and entered into symbol tables
+
+Also 1.653 (#define) multiple times in object code
+Whereas constant AspectRatio appears once
+
+
+2x SPECIAL CASES
+
+
+01.
+Defining constant pointers
+
+Constant definitions in headers files means pointer declared const plus what pointer points to
+const char* const authorName = "Scott Meyers";
+
+
+NB: string prob better than char*
+const std:: authorName("Scott Meyers");
+
+
+02.
+Class-specific constants
+
+Limit scope of constant to class 	= make it a member
+Ensure at most one copy of constant 	= make it static
+
+// GamePlayer.h
+class GamePlayer 
+{
+private:
+	static const int NumTurns = 5;	// constant declaration
+	int scores[NumTurns];
+};
+
+
+C++ requires definition for declaration except class-specific constants that are static of integral type
+(int, char, bool)
+
+NB: if you take address then compiler insists on definition:
+
+// GamePlayer.cpp
+const int GamePlayer::NumTurns; 	// definition	no value!
+
+
+IMP
+Cannot create class-specific constant using #define
+#define does not respect scope: can't be private
+
+
+If (old) compiler does not allow initialization in declaration (above) then do this
+
+// GamePlayer.h
+class GamePlayer 
+{
+private:
+	static const int NumTurns;	// constant declaration
+};
+
+
+// GamePlayer.cpp
+const int GamePlayer::NumTurns = 5; 	// definition	no value!
+
+
+However, now scores array won't work 'cos you need the value of a class constant during compilation:
+compilers insist on knowing the size of the array
+
+Only way to forbid in-class specification of initial values for static integral class constants:
+ENUM HACK
+
+class GamePlayer
+{
+private:
+  enum { NumTurns = 5 };        // "the enum hack" — makes NumTurns a symbolic name for 5
+  int scores[NumTurns];         // fine
+};
+
+
+Enum hack used a lot!
+Acts more like #define than const
+
+
+Why?
+Take address of const	Legal
+Take address of enum	Illegal
+Take address of #define	Illegal
+
+If you don't want people get pointer or reference to integral constants then enum enforces that constraint
+
+Also, enum hack is fundamental technique of template metaprogramming
+
+
+MACROs
+Macros look like functions but don't incur overhead of function call
+Arrgh : must parenthesize all arguments in the macro body!
+
+NO
+// call f with the maximum of a and b
+#define CALL_WITH_MAX(a, b) f((a) > (b) ? (a) : (b))
+
+
+int a = 5, b = 0;
+CALL_WITH_MAX(++a, b);          // a is incremented twice
+CALL_WITH_MAX(++a, b+10);       // a is incremented once
+
+
+YES
+template<typename T>
+inline void callWithMax(const T& a, const T& b)
+{
+	f(a > b ? a : b);
+}
+
+
+No need to
+parenthesize parameters inside function body
+evaluate parameters multiple times
+
+callWithMax obeys scope and access rules
+Can inline function private to the class
+
+Can't do that with Macro!
+
+
+
+SUMMARY
+* For simple constants, prefer const or enums to #define
+* For function-like macros, prefer inline functions to #define

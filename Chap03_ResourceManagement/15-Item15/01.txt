@@ -1,0 +1,33 @@
+#pragma once
+
+class Investment
+{
+};
+
+
+#pragma once
+
+#include <memory>
+#include "Investment.h"
+
+Investment* createInvestment()
+{
+	Investment* i = new Investment;
+	return i;
+}
+
+int daysHeld(const Investment* pi)
+{
+	return 1;
+}
+
+int main()
+{
+	std::tr1::shared_ptr<Investment> pInv1(createInvestment());
+
+	// Cannot convert parameter 1 from std::tr1::shared_ptr to const Investment*
+	//int days = daysHeld(pInv1);
+	int days = daysHeld(pInv1.get());
+
+	return 0;
+}

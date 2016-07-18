@@ -1,0 +1,200 @@
+24 Item24
+03-Dec-2013
+
+
+Item 24: Declare non-member functions when type conversions should apply to all parameters
+
+
+Intro: classes that support implicit type conversions are generally a bad idea.
+But there are exceptions to the rule, e.g. creating numerical types
+
+Design Rational class allow implicit type conversions doesn't sound unreasonable:
+No less reasonable than C++ built-in type to convert int to double (and vice versa)
+
+
+class Rational
+{
+public:
+	Rational(int numerator = 0, int denominator = 1) :
+	  n(numerator), d(denominator)
+	{
+	}
+
+	int numerator() const { return n; }
+	int denominator() const { return d; }
+
+private:
+	int n, d;
+};
+
+
+You want to support arithmetic operations like addition, multiplication but not sure whether 
+they should be implemented via member functions, non-member functions, friends / non-friends
+
+Instincts: when in doubt you should be object-orientated
+
+e.g. multiplications of Rational numbers is related to Rational class
+so it seems natural to implement operator* for rational numbers in Rational class
+
+
+Item23 counter intuitively argues the idea of putting functions in the class they
+are associated with is sometimes contrary to object-orientated principles
+
+
+However, let's investigate idea of putting operator* a member function of Rational class:
+
+class Rational
+{
+public:
+	...
+
+	const Rational operator*(const Rational& rhs) const
+	{
+		return Rational(n * rhs.numerator(), d * rhs.denominator());
+	}
+
+};
+
+
+Item3, 20, 21 says why returning a const by value result + take reference to const argument
+
+
+CODE
+
+01.
+Rational oneEighth(1, 8);
+Rational oneFourth(1, 2);
+
+Rational result;
+result = oneFourth * oneEighth;			// fine
+result = result * oneEighth;			// fine
+
+
+02.
+But you're not satisfied: you'd like to support mixed-mode operations where
+Rational numbers can be multiplied by ints:
+
+result = oneFourth * 2;				// fine
+result = 2 * oneFourth;				// error!
+
+
+WTF?
+Multiplication is supposed to be commutative!
+
+
+Source of problem becomes apparent when you rewrite the last 2x examples in functional form:
+
+result = oneFourth.operator*(2);
+result = 2.operator*(oneHalf);
+
+
+Object oneHalf is an instance of a class that contains operator* so compilers call that fn
+But integer 2 has no associated class, hence no operator* member function
+
+Compilers will also look for non-member operator* (in namespace or global scope)
+that can be called like this:
+
+result = operator*(2, oneHalf);			// error!
+
+
+In this example, there is no non-member function operator* taking an int and Rational;
+so the search fails
+
+
+Why then does call with 2 as second parameter succeed?
+Because implicit type conversion!
+
+Compilers know you're passing an int and the function requires a Rational but
+the compiler can construct a suitable Rational by calling constructor with an int
+
+That's what they do and treat the call as if it had been written more or less:
+
+const Rational temp(2);		// create temporary Rational object from 2
+result = oneHalf * temp;	// same as oneHalf.operator*(temp);
+
+
+Of course, only works because Rational constructor is NOT explicit
+If Rational constructor were explicit then neither statements would compile
+
+
+class Rational
+{
+public:
+	explicit Rational(int numerator = 0, int denominator = 1) :
+	  n(numerator), d(denominator)
+	{
+	}
+
+	...
+};
+
+
+result = oneHalf * 2;                // error! (with explicit ctor);
+                                     // can't convert 2 to Rational
+
+result = 2 * oneHalf;                // same error, same problem
+
+
+EXPLANATION
+Turns out that parameters are eligible for implicit type conversion only if they are listed
+in the parameter list!
+
+The implicit parameter corresponding to the object on which the member function is invoked - 
+the one "this" points - is never eligible for implicit type conversion
+
+That's why first call compiles but the second one does not
+
+
+However, you'd still like to support mixed-mode arithmetic and way to do it is clear:
+
+operator* must be non-member function thus allowing compilers to perform implicit type
+conversion on ALL arguments
+
+
+class Rational
+{
+	...
+};
+
+
+const Rational operator*(const Rational& lhs, const Rational& rhs)
+{
+	return Rational(lhs.numerator() * rhs.numerator(), lhs.denominator() * rhs.denominator());
+}
+
+
+Rational oneEighth(1, 8);
+Rational oneFourth(1, 4);
+
+Rational result;
+result = oneFourth * oneEighth;			// fine
+result = result * oneEighth;			// fine
+
+result = oneFourth * 2;				// fine
+result = 2 * oneFourth;				// hooray, it works!
+
+
+CONSIDERATION
+Last thing: should operator* be made a friend of the Rational class?
+
+
+In this case, the answer is NO because operator* can be implemented in terms of Rational
+public interface
+
+Observation: the opposite of member function is a non-member function (not a friend function)
+
+
+Too many C++ programmers assume that if a function is related to a class and should not be a
+member function (e.g. need to convert all args) then it should be made a friend function
+
+
+Not req'd here!  Whenever you can avoid friend functions you should;
+(friends are often more trouble than they are worth)
+
+Just because a function shouldn't be a member doesn't automatically mean it should be a friend
+Item46 expose new issues to consider when Rational becomes a class template instead of a class
+
+
+REMEMBER
+* If you type conversions on all parameters to a function (including the one pointed to by
+  the this pointer), then the function must be a non-member

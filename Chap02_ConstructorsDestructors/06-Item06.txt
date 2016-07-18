@@ -1,0 +1,78 @@
+06 Item06
+09-Nov-2013
+
+
+Item 06: Explicitly disallow the use of compiler-generated functions you do not want 
+
+
+class HomeForSale { ... };
+
+Cannot copy something that's inherently unique.
+You'd like attempts to copy HomeForSale objects not compile
+
+
+HomeForSale h1;
+HomeForSale h2;
+
+HomeForSale h3(h1);               // attempt to copy (constructor)	h1 — should not compile!
+h1 = h2;                          // attempt to copy (assignment)	h2 — should not compile!
+
+
+Usually, if you don't want class to support functionality then you simply don't declare it
+
+However, this strategy doesn't work for copy constructor and copy assignment operator
+because if you don't declare these then the compiler will generate them for you
+
+NB: compiler-generated functions are public
+To prevent these functions from being generated you must declare them yourself but as private
+
+Declaring member function explicitly you prevent compilers from generate their own version
+And by making them private you keep people from calling them
+
+
+However, not foolproof because member and friend functions can still call them
+Unless you declare them but do NOT define them!
+
+Solution
+Declare member functions private and deliberately not implement them
+
+e.g. C++ iostream library uses this technique to prevent copying
+ios_base, basic_ios
+
+
+Example
+class HomeForSale
+{
+public:
+
+private:
+	HomeForSale(const HomeForSale&);
+	HomeForSale& operator=(const HomeForSale&);
+};
+
+
+No point in specifying parameter names as functions never implemented much less used
+If you inadvertently try in member or friend function then the linker will complain
+
+
+Possible to move link-time error to compile time (good!)
+by declaring copy constructor and copy assignment operator in base class designed to prevent copying
+
+
+This works: even if member / friend function attempt to copy then
+compiler-generated versions of these functions will call base class and those calls rejected (private!)
+
+
+Uncopyable notes
+- constructor / destructor need not be public
+- destructor need not be virtual
+- there's no data so may be eligible for empty base class optimization? (Item 39)
+
+Also, could use Boost noncopyable class
+
+
+REMEMBER
+* To disallow functionality automatically provided by compilers, declare the corresponding
+  member functions private and give no (defined) implementations
+
+* Using base class like Uncopyable is one way to do this

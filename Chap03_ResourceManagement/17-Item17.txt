@@ -1,0 +1,85 @@
+17 Item17
+27-Nov-2013
+
+
+Item 17: Store newed objects in smart pointers in standalone statements.
+
+
+Suppose we have a function:
+void processWidget(std::tr1::shared_ptr<Widget> pw, int priority);
+
+
+Item13 wisdom of using objects (shared_ptr) to manage resources, processWidget uses a smart pointer
+for the dynamically allocated Widget it processes
+
+
+Consider now a call to processWidget:
+processWidget(new Widget, priority());
+
+
+WAIT!  This won't compile!  tr1::shared_ptr constructor taking a raw pointer is explicit
+so there's no implicit conversion from the raw pointer returned from "new Widget"
+
+
+This code, however, will compile:
+processWidget(std::tr1::shared_ptr<Widget>(new Widget), priority());
+
+
+Surprisingly, this code may leak resources!
+
+
+Before compilers generate call to processWidget() they have to evaluate arguments being passed in as parameters
+
+e.g.
+"std::tr1::shared_ptr<Widget>(new Widget) consists of two parts:
+
+1. execution "new Widget"
+2. call to tr1::shared_ptr ctor
+
+
+Before processWidget() can be called, compilers must generate code to do 3x things:
+
+1. call priority()
+2. execute "new Widget"
+3. call to tr1::shared_ptr ctor
+
+
+C++ compilers can generate code in any order, unlike C# where function parameters are always evaluated in order.
+Therefore, "new Widget" expression must be executed before call to tr1::shared_ptr ctor
+
+BUT, priority() can be performed first, second or third
+If compilers choose to perform it second (maybe to generate more efficient code) then the sequence of operations is:
+
+
+1. execute "new Widget"
+2. call priority()
+3. call to tr1::shared_ptr ctor
+
+
+Then what happens if call to priority() yields an exception.  In that case the pointer returned from "new Widget"
+will be lost because it won't have been stored in the tr1::shared_ptr we were expecting to guard against resource leaks
+
+A leak in the call to processWidget() can arise because an exception can intervene between the time a resource is created
+(via "new Widget") and the time that resource is turned over to a resource-managing object.
+
+
+SOLUTION
+The way to avoid problems like this is simple:
+use a separate statement to create the Widget and store it in a smart pointer then pass the smart pointer to processWidget()
+
+
+// store newed object in a smart pointer in a standalone statement
+std::tr1::shared_ptr<Widget> pw(new Widget);
+
+
+// this call won't leak!!
+processWidget(pw, priority());
+
+
+This works because compilers are given less leeway to reorder operations across statements than within them
+Now compilers are not allowed to move the call to priority() between "new Widget" and tr1::shared_ptr
+
+
+REMEMBER
+* Store newed objects in smart pointers in standalone statements.  Failure to do this can lead to subtle resource leaks
+  when exceptions are thrown

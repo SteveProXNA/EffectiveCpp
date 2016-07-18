@@ -1,0 +1,47 @@
+09/11/2013
+
+#ifndef _FILESYSTEM_
+#define _FILESYSTEM_
+
+#include <string>
+
+class FileSystem
+{
+public:
+	std::size_t numDisks() const
+	{
+		return 5;
+	}
+};
+
+#endif//_FILESYSTEM_
+extern FileSystem tfs;
+
+
+#ifndef _DIRECTORY_
+#define _DIRECTORY_
+
+#include <string>
+#include "FileSystem.h"
+
+class Directory
+{
+public:
+	Directory()
+	{
+		std::size_t disks = tfs.numDisks();
+	}
+};
+
+#endif//_DIRECTORY_
+
+
+#include "Directory.h"
+FileSystem tfs;
+
+int main()
+{
+	Directory dir;
+
+	return 0;
+}

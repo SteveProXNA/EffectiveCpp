@@ -1,0 +1,219 @@
+04 Item04
+09-Nov-2013
+
+
+Item 04: Make sure that objects are initialized before they're used
+
+
+int x;
+x guaranteed to be initialized (to zero)
+
+
+Point p;
+p's data members are sometimes guaranteed to be initialized (to zero)
+but sometimes they're not
+
+
+Reading uninitialized values yields undefined behavior
+
+
+Rules that describe object initialization are complicated
+Not worth memorizing
+
+e.g.
+C part of C++ and initialization incur runtime cost then not guaranteed to take place
+
+Explains why array (C part of C++) not guaranteed to have its contents initialized
+But vector (STL part of C++) is
+
+Solution: ALWAYS initialize your objects before you use them
+
+
+Examples
+int x = 0;				// manual initialization of an int
+const char* text = "A C-style string"	// manual initialization of a pointer
+
+double d;
+std::cin >> d;				// "initialization" by reading from input stream
+
+
+Everything else, responsibility falls on constructors
+Therefore, ensure constructors initialize everything in the object
+
+NB: do not confuse assignment with initialization
+
+
+//01. Assignments
+ABEntry(const std::string& name, const std::string& address, const std::list<PhoneNumber>& phones)
+{
+	// these are all assignments.
+	theName = name;
+	theAddress = address;
+	thePhones = phones;
+	numTimesConsulted = 0;
+}
+
+
+ABEntry objects with values you expect but not the best approach
+
+
+Rules of C++ stipulate that data members of an object are initialized BEFORE
+the body of a constructor is entered
+
+ABEntry data members are assigned
+Initialization took place earlier when default constructor were called automatically
+before entering body of ABEntry constructor
+
+Not true for numTimesConsulted, a built-in type
+No guarantee it was initialized prior to assignment
+
+
+Better way to write ABEntry (non-default) constructor
+Use member initialization list instead of assignments
+
+
+//02. Initialization list.
+ABEntry::ABEntry(const std::string& name, const std::string& address, const std::list<PhoneNumber>& phones) :
+	theName(name),
+	theAddress(address),
+	thePhones(phones),
+	numTimesConsulted(0)
+{
+	// the ctor body is empty.
+}
+
+
+Results are the same but initialization list is more efficient.
+NB: theName(name) invokes copy constructor
+
+But a single call to a copy constructor is more efficient (sometimes MUCH more efficient)
+than a call to the default constructor followed by call to copy assignment operator
+
+
+Built-in types there is no difference but best to initialize EVERYTHING via member initialization
+
+
+Also, you can use member initialization for default-construct data members;
+just specify nothing as an initialization argument
+
+
+//03. Empty default-constructed values
+ABEntry::ABEntry(const std::string& name, const std::string& address, const std::list<PhoneNumber>& phones) :
+	theName(),
+	theAddress(),
+	thePhones(),
+	numTimesConsulted(0)
+{
+}
+
+
+Best advice is to do member initialization for all data members 
+so don't forget any plus const and reference must be initialized; they can't be assigned!
+
+AND initialize in the order they're listed in data member section
+because they will be initialized in the data member order i.e.theName initialized before theAddress
+
+
+LAST THING
+The order of initialization of non-local static objects defined in different translation units
+
+
+STATIC OBJECT
+An object that exists from the time it's constructed until the end of the program
+
+Excludes: stack / heap based objects
+Includes: global objects, namespace objects, objects declare static in classes, functions, files
+
+Local static objects are objects declared static in functions
+Non-local static objects are everything else
+
+
+TRANSLATION UNIT
+Source code giving rise to a single object file
+A single source file plus all #include files
+
+
+If non-local static object in one translation unit uses a non-local static object in
+different translation unit then the object it uses could be uninitialized.  Why?
+
+The relative order of initialization of non-local static objects defined in different
+translation units is undefined
+
+
+FileSystem + Directory example
+Initialization order is important: FileSystem tfs MUST be initialized BEFORE Directory
+
+But there is no guarantee of this because:
+The relative order of initialization of non-local static objects defined in different
+translation units is undefined
+
+
+Why?  Because it is impossible to determine the right order of initialization
+
+
+Solution
+Move each non-local static object into its own function where it's declared static
+These functions return references to the objects they contain
+
+Non-local static objects are replaced with local static objects
+(Singleton design pattern)
+
+
+C++ guarantees that local static objects are initialized when the object's definition 
+is first encountered during a call to that function
+
+So, if you replace direct access to non-local static objects with calls to functions
+that return references to local static objects then you're guaranteed objects will initialized
+
+Bonus: if you never call function then you never incur const of constructing / destructing obj
+
+
+class FileSystem { ... };           // as before
+
+FileSystem& tfs()                   // this replaces the tfs object; it could be
+{                                   // static in the FileSystem class
+  static FileSystem fs;             // define and initialize a local static object
+  return fs;                        // return a reference to it
+}
+
+class Directory { ... };            // as before
+
+Directory::Directory( params )      // as before, except references to tfs are
+{                                   // now to tfs()
+  std::size_t disks = tfs().numDisks();
+}
+
+Directory& tempDir()                // this replaces the tempDir object; it
+{                                   // could be static in the Directory class
+  static Directory td;              // define/initialize local static object
+  return td;                        // return reference to it
+}
+
+
+Clients of program replace tfs with tfs()
+i.e. use functions returning references to objects instead of using objects themselves
+
+
+IMPORTANT
+These functions contain static objects and makes them problematic in multi-threaded systems
+non-const static object (local or non-local) may be trouble in multi-threaded systems
+
+Solution
+Manually invoke all the reference-returning functions during the single-threaded startup
+That eliminates initialization-related race conditions
+
+
+To avoid using objects before they're initialized do 3x things:
+1. manually initialize non-member objects of built-in types
+2. use member initialization lists to initialize all parts of an object
+3. design around then initialization order for non-local static objects in diff translation units
+
+
+REMEMBER
+* Manually initialize objects of built-in type, because C++ only sometimes initializes them
+
+* In a constructor, prefer member initialization lists to assignment inside constructor body.
+  List data members in initialization list in the same order they're declared in the class
+
+* Avoid initialization order problems across translation units by replacing
+  non-local static objects with local static objects (in functions)
